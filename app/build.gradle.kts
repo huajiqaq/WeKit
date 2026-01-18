@@ -226,6 +226,8 @@ dependencies {
 
     implementation(libs.sealedEnum.runtime)
     ksp(libs.sealedEnum.ksp)
+    implementation(projects.libs.common.annotationScanner)
+    ksp(projects.libs.common.annotationScanner)
 
     implementation(libs.material.preference)
     implementation(libs.dev.appcompat)

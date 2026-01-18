@@ -13,69 +13,98 @@ public class Logger {
 
     public static void e(@NonNull String msg) {
         android.util.Log.e(TAG, msg);
-        LogUtils.addError("common", msg);
+        try {
+            LogUtils.addError("common", msg);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void e(String tag, @NonNull String msg) {
         android.util.Log.e(TAG, tag + ": "+ msg);
-        LogUtils.addError("common", tag + ": "+ msg);
+        try {
+            LogUtils.addError("common", tag + ": "+ msg);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void w(@NonNull String msg) {
         android.util.Log.w(TAG, msg);
-        LogUtils.addRunLog("common", msg);
+        try {
+            LogUtils.addRunLog("common", msg);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
     public static void w(String tag, @NonNull String msg) {
         android.util.Log.w(TAG, tag + ": "+ msg);
-        LogUtils.addRunLog("common", msg);
+        try {
+            LogUtils.addRunLog("common", msg);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void i(@NonNull String msg) {
         android.util.Log.i(TAG, msg);
-        LogUtils.addRunLog("common", msg);
+        try {
+            LogUtils.addRunLog("common", msg);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
     public static void i(String tag, @NonNull String msg) {
         android.util.Log.i(TAG, tag + ": "+ msg);
-        LogUtils.addRunLog("common", msg);
+        try {
+            LogUtils.addRunLog("common", msg);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
 
     public static void d(@NonNull String msg) {
         android.util.Log.d(TAG, msg);
-        LogUtils.addRunLog("common", msg);
+        try {
+            LogUtils.addRunLog("common", msg);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
+
     }
     public static void d(String tag, @NonNull String msg) {
         android.util.Log.d(TAG, tag + ": "+ msg);
-        LogUtils.addRunLog("common", msg);
+        try {
+            LogUtils.addRunLog("common", msg);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void v(@NonNull String msg) {
         android.util.Log.v(TAG, msg);
-        LogUtils.addRunLog("common", msg);
+        try {
+            LogUtils.addRunLog("common", msg);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
     public static void v(String tag, @NonNull String msg) {
         android.util.Log.v(TAG, tag + ": "+ msg);
-        LogUtils.addRunLog("common", msg);
+        try {
+            LogUtils.addRunLog("common", msg);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void e(@NonNull Throwable e) {
         android.util.Log.e(TAG, e.toString(), e);
-        LogUtils.addError("common", e);
+        try {
+            LogUtils.addError("common", e);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void w(@NonNull Throwable e) {
         android.util.Log.w(TAG, e.toString(), e);
-        LogUtils.addRunLog("common", e);
+        try {
+            LogUtils.addError("common", e);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void i(@NonNull Throwable e) {
         android.util.Log.i(TAG, e.toString(), e);
-        LogUtils.addRunLog("common", e);
+        try {
+            LogUtils.addError("common", e);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void i(@NonNull Throwable e, boolean output) {
         android.util.Log.i(TAG, e.toString(), e);
-        LogUtils.addRunLog("common", e);
+        try {
+            LogUtils.addError("common", e);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
         if (output){
             XposedBridge.log(e);
         }
@@ -83,27 +112,37 @@ public class Logger {
 
     public static void d(@NonNull Throwable e) {
         android.util.Log.d(TAG, e.toString(), e);
-        LogUtils.addRunLog("common", e);
+        try {
+            LogUtils.addError("common", e);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void e(@NonNull String msg, @NonNull Throwable e) {
         android.util.Log.e(TAG, msg, e);
-        LogUtils.addError("common", e);
+        try {
+            LogUtils.addError("common", e);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void w(@NonNull String msg, @NonNull Throwable e) {
         android.util.Log.w(TAG, msg, e);
-        LogUtils.addRunLog("common", e);
+        try {
+            LogUtils.addError("common", e);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void i(@NonNull String msg, @NonNull Throwable e) {
         android.util.Log.i(TAG, msg, e);
-        LogUtils.addRunLog("common", e);
+        try {
+            LogUtils.addError("common", e);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     public static void d(@NonNull String msg, @NonNull Throwable e) {
         android.util.Log.d(TAG, msg, e);
-        LogUtils.addRunLog("common", e);
+        try {
+            LogUtils.addError("common", e);
+        } catch (ExceptionInInitializerError | NoClassDefFoundError ignored) {}
     }
 
     @NonNull

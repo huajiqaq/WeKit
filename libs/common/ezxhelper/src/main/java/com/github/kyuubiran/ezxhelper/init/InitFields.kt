@@ -1,7 +1,7 @@
 package com.github.kyuubiran.ezxhelper.init
 
 import android.content.Context
-import moe.qq.hostInfo
+import moe.ouom.wekit.host.hostInfo
 
 
 object InitFields {

@@ -4,7 +4,7 @@ import com.github.kyuubiran.ezxhelper.init.InitFields
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XC_MethodReplacement
 import de.robv.android.xposed.XposedBridge
-import moe.qq.loader.hookapi.IHookBridge
+import moe.ouom.wekit.loader.hookapi.IHookBridge
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 

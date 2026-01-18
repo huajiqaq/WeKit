@@ -95,10 +95,6 @@ public class Initiator {
         return null;
     }
 
-    public static Class<?> _ThemeUtil() {
-        return findClassWithSynthetics("com/tencent/mobileqq/theme/ThemeUtil", "com.tencent.mobileqq.vas.theme.api.ThemeUtil");
-    }
-
     /**
      * Load a class, if the class is not found, a ClassNotFoundException will be thrown.
      *

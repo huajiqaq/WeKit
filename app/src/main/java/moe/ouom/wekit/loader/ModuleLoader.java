@@ -91,7 +91,7 @@ public class ModuleLoader {
             }
         } catch (Exception | Error e) {
             sInitErrors.add(e);
-            android.util.Log.e(BuildConfig.TAG, "initialize: createTargetClassLoader failed", e);
+            Logger.e("initialize: createTargetClassLoader failed", e);
         }
         // if we failed to create targetClassLoader, fallback to normal startup
         String modulePath;
@@ -103,7 +103,7 @@ public class ModuleLoader {
         }
         assert targetClassLoader != null;
         // invoke the startup routine
-        Class<?> kUnifiedEntryPoint = targetClassLoader.loadClass("moe.qq.startup.UnifiedEntryPoint");
+        Class<?> kUnifiedEntryPoint = targetClassLoader.loadClass("moe.ouom.wekit.loader.startup.UnifiedEntryPoint");
         Method initialize = kUnifiedEntryPoint.getMethod("entry",
                 String.class, String.class, ILoaderService.class, ClassLoader.class, IHookBridge.class);
         sLoaded = true;
