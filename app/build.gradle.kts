@@ -195,16 +195,14 @@ dependencies {
     implementation(libs.activity)
     implementation(libs.constraintlayout) { exclude("androidx.appcompat", "appcompat") }
 
-    val composeBom = platform("androidx.compose:compose-bom:2026.01.00")
-    implementation(composeBom)
-    androidTestImplementation(composeBom)
+    implementation(platform(libs.compose.bom))
 
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.material.icons.extended)
 
     implementation(libs.kotlinx.io.jvm)
     implementation(libs.dexkit)

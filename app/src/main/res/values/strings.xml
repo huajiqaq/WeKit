@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">WeKit</string>
+    <string name="xposed_description">WeChat, Now with Superpowers\ncwuom@github</string>
 </resources>

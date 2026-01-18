@@ -4,7 +4,7 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "moe.qq.buildLogic"
+group = "moe.ouom.wekit.buildLogic"
 
 repositories {
     google()
