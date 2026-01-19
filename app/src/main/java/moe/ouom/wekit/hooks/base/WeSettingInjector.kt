@@ -3,16 +3,16 @@ package moe.ouom.wekit.hooks.base
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.constants.Constants.Companion.CLAZZ_ICON_PREFERENCE
-import moe.ouom.wekit.constants.Constants.Companion.CLAZZ_I_PREFERENCE_SCREEN
-import moe.ouom.wekit.constants.Constants.Companion.CLAZZ_PREFERENCE
 import moe.ouom.wekit.constants.Constants.Companion.CLAZZ_SETTINGS_UI
 import moe.ouom.wekit.dexkit.TargetManager
 import moe.ouom.wekit.hooks._base.ApiHookItem
 import moe.ouom.wekit.hooks._core.annotation.HookItem
+import moe.ouom.wekit.ui.CommonContextWrapper
+import moe.ouom.wekit.ui.creator.dialog.MainSettingsDialog
 import moe.ouom.wekit.util.log.Logger
 
 @SuppressLint("DiscouragedApi")
@@ -63,26 +63,35 @@ class WeSettingInjector : ApiHookItem() {
             }
         }
 
-        val clsIPreferenceScreen = XposedHelpers.findClass(CLAZZ_I_PREFERENCE_SCREEN, classLoader)
-        val clsPreference = XposedHelpers.findClass(CLAZZ_PREFERENCE, classLoader)
-
-        val mOnTreeClick = XposedHelpers.findMethodExact(
+        Logger.i("WeSettingInjector: Created WeKit setting")
+        XposedBridge.hookAllMethods(
             clsSettingsUI,
             "onPreferenceTreeClick",
-            clsIPreferenceScreen,
-            clsPreference
+            object : XC_MethodHook() {
+                override fun beforeHookedMethod(param: MethodHookParam) {
+                    try {
+                        if (param.args.size < 2) return
+                        val preference = param.args[1] ?: return
+
+                        val key = methodGetKey.invoke(preference) as? String
+                        Logger.d("WeKit Debug: Click key = $key")
+
+                        if (KEY_WEKIT_ENTRY == key) {
+                            val activity = param.thisObject as Activity
+
+                            val fixContext = CommonContextWrapper.createAppCompatContext(activity)
+                            val dialog = MainSettingsDialog(fixContext)
+                            dialog.show()
+                            param.result = true
+                        }
+                    } catch (t: Throwable) {
+                        Logger.e(t)
+                        Logger.e("WeSettingInjector: Click handle error", t)
+                    }
+                }
+            }
         )
 
-
-        hookBefore(mOnTreeClick) { param: XC_MethodHook.MethodHookParam ->
-            val preference = param.args[1] ?: return@hookBefore
-
-            val key = methodGetKey.invoke(preference) as? String
-
-            if (KEY_WEKIT_ENTRY == key) {
-                val activity = param.thisObject as Activity
-                // TODO
-            }
-        }
+        Logger.i("WeSettingInjector: Hooked onPreferenceTreeClick")
     }
 }

@@ -15,6 +15,7 @@ import moe.ouom.wekit.util.log.Logger;
 
 public class NativeCoreBridge {
     static {
+        // it will be an UnsatisfiedLinkError if first load..
         System.loadLibrary("dexkit");
     }
 

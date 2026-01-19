@@ -50,7 +50,10 @@ public class ExceptionFactory {
         exceptionsList.add(0, throwable);
         exceptionMap.put(item, exceptionsList);
         XposedBridge.log(throwable);
-        LogUtils.addError("item_" + item.getItemName(), throwable);
+        try {
+            LogUtils.addError("item_" + item.getItemName(), throwable);
+        } catch (NoClassDefFoundError ignored) {}
+
 
     }
 

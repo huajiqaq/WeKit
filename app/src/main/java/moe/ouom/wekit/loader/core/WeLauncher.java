@@ -97,12 +97,13 @@ public class WeLauncher {
 //                    Logger.d("login_weixin_username: " + login_weixin_username + "\nlast_login_nick_name: " + last_login_nick_name + "\nlogin_user_name: " + login_user_name + "\nlast_login_uin: " + last_login_uin);
 
                     postDelayed(0, () -> {
-//                        if (!TargetManager.isNeedFindTarget()){
-//                            return;
-//                        }
+                        if (!TargetManager.isNeedFindTarget()){
+                            Logger.i("[TargetManager] same version since last time, no need find new target.");
+                            return;
+                        }
 
                         Context fixContext = CommonContextWrapper.createAppCompatContext(activity);
-                        Logger.i("need find target!");
+                        Logger.w("wechat updated, need find new target first!");
                         try {
                             MethodFinderDialog dialog = new MethodFinderDialog(fixContext, activity, cl, ai);
                             dialog.show();

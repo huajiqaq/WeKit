@@ -65,7 +65,7 @@ class HookItemScanner(
                     val typeName = symbol.toClassName()
                     val hookItem = symbol.getAnnotationsByType(HookItem::class).first()
                     val itemName = hookItem.path
-                    val desc = hookItem.description
+                    val desc = hookItem.desc
 
                     // 为每个类生成对象实例并设置路径
                     val valName = symbol.toClassName().simpleName

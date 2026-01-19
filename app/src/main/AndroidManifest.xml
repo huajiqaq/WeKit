@@ -12,12 +12,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:description="@string/xposed_description"
-        android:theme="@style/Theme.Wekit">
+        android:theme="@style/Theme.WeKit">
         <activity
             android:name=".activity.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Wekit">
+            android:theme="@style/Theme.WeKit">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
@@ -30,7 +30,7 @@
             android:icon="@drawable/wekit"
             android:label="@string/app_name"
             android:targetActivity=".activity.MainActivity"
-            android:theme="@style/Theme.Wekit">
+            android:theme="@style/Theme.WeKit">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

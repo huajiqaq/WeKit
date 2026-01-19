@@ -38,6 +38,15 @@ public class ModuleRes {
             );
             sResources = sModuleContext.getResources();
             sPackageName = modulePkgName;
+
+            // 给模块 Context 设置 Material 主题，否则在部分场景下它会崩溃
+            int themeId = sResources.getIdentifier("Theme.WeKit", "style", sPackageName);
+            if (themeId != 0) {
+                sModuleContext.setTheme(themeId);
+            } else {
+                Logger.e("ModuleRes: 未找到 Theme.WeKit，Material 组件可能会崩溃！");
+            }
+
             Logger.i("ModuleRes: 初始化成功 [" + modulePkgName + "]");
         } catch (PackageManager.NameNotFoundException e) {
             Logger.e("ModuleRes: 初始化失败，未找到模块包名: " + modulePkgName);

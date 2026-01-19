@@ -45,7 +45,7 @@ public class MethodFinderDialog extends Dialog {
 
         // 使用 ModuleRes 加载布局
         // 第二个参数传 null，因为 Dialog 会自动处理 LayoutParams
-        View rootView = ModuleRes.inflate("methodfinder_layout", null);
+        View rootView = ModuleRes.inflate("dialog_methodfinder_layout", null);
 
         if (rootView == null) {
             // 如果加载失败，就显示一个空的 View 避免崩溃

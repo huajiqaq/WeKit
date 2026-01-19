@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 public @interface HookItem {
     String path();           // 功能路径
-    String description() default "";    // 功能描述
+    String desc() default "";    // 功能描述
 }
 
 
