@@ -40,6 +40,8 @@ abstract class BaseRikkaDialog(
         }
     }
 
+    // 提升 rootView 为类成员变量，因为动画要作用于它
+    protected lateinit var rootView: View
     protected lateinit var contentContainer: LinearLayout
 
     // 依赖管理：key -> 依赖它的 View 列表
@@ -53,22 +55,34 @@ abstract class BaseRikkaDialog(
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Window 基础设置
         window?.apply {
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-
-            val animStyleId = ModuleRes.getId("Animation.WeKit.Dialog", "style")
-            if (animStyleId != 0) {
-                setWindowAnimations(animStyleId)
-            }
+            setBackgroundDrawableResource(android.R.color.transparent)
+            setDimAmount(0.5f) // 遮罩浓度
         }
 
         val layoutId = ModuleRes.getId("module_dialog_frame", "layout")
         if (layoutId == 0) return
 
-        // 使用 ContextWrapper 包装后的 layoutInflater 能够正确加载模块资源
-        val rootView = layoutInflater.inflate(layoutId, null)
+        // 只加载一次，赋值给成员变量 rootView
+        rootView = layoutInflater.inflate(layoutId, null)
+
+        // 设置背景
+        val bgDrawableId = ModuleRes.getId("bg_dialog_surface", "drawable")
+        if (bgDrawableId != 0) {
+            rootView.background = ModuleRes.getDrawable("bg_dialog_surface")
+        } else {
+            val typedValue = android.util.TypedValue()
+            context.theme.resolveAttribute(android.R.attr.colorBackground, typedValue, true)
+            rootView.setBackgroundColor(typedValue.data)
+        }
+
+        // 将设置好背景的 view 设置为内容
         setContentView(rootView)
 
+        // 初始化控件
         val idAppBar = ModuleRes.getId("topAppBar", "id")
         val toolbar = rootView.findViewById<Toolbar>(idAppBar)
         toolbar.title = title
@@ -239,7 +253,6 @@ abstract class BaseRikkaDialog(
     ): View {
         val configKey = if (useFullKey) key else "${Constants.PrekXXX}$key"
 
-        // 这里获取的值仅用于界面初次显示 Summary
         val initialValue = ConfigManager.getDefaultConfig().getString(configKey, defaultValue) ?: defaultValue
 
         val displaySummary = if (summaryFormatter != null) {
@@ -248,7 +261,7 @@ abstract class BaseRikkaDialog(
             if (initialValue.isEmpty()) summary else "$summary: $initialValue"
         }
 
-        val view = addPreference(
+        val summaryTextView = addPreference(
             title = title,
             summary = displaySummary,
             iconName = iconName,
@@ -270,7 +283,8 @@ abstract class BaseRikkaDialog(
             }
         )
 
-        return view?.parent as? View ?: View(context)
+        // 使用 findItemContainer 找到最外层的 View
+        return findItemContainer(summaryTextView)
     }
 
     /**
@@ -298,7 +312,7 @@ abstract class BaseRikkaDialog(
         val currentValue = ConfigManager.getDefaultConfig().getInt(configKey, defaultValue)
         val displaySummary = options[currentValue] ?: "$summary: $currentValue"
 
-        val view = addPreference(
+        val summaryTextView = addPreference(
             title = title,
             summary = displaySummary,
             iconName = iconName,
@@ -307,7 +321,8 @@ abstract class BaseRikkaDialog(
             }
         )
 
-        return view?.parent as? View ?: View(context)
+        // 使用 findItemContainer 找到最外层的 View
+        return findItemContainer(summaryTextView)
     }
 
     /**
@@ -328,15 +343,53 @@ abstract class BaseRikkaDialog(
     ) {
         val configKey = if (useFullKey) dependencyKey else "${Constants.PrekXXX}$dependencyKey"
         val list = dependencies.getOrPut(configKey) { mutableListOf() }
-        list.add(DependencyInfo(dependentView, enableWhen, hideWhenDisabled))
+
+        // 注册依赖信息
+        val info = DependencyInfo(dependentView, enableWhen, hideWhenDisabled)
+        list.add(info)
+
+        // 立即读取当前配置并应用状态
+        // 防止 addSwitchPreference 先执行完了，导致这里错过了初始化的机会
+        val currentValue = ConfigManager.getDefaultConfig().getBooleanOrFalse(configKey)
+
+        val shouldEnable = if (enableWhen) currentValue else !currentValue
+
+        if (hideWhenDisabled) {
+            dependentView.visibility = if (shouldEnable) View.VISIBLE else View.GONE
+        } else {
+            // 使用之前修复过的递归方法，确保点击事件也被禁用
+            setViewEnabledRecursive(dependentView, shouldEnable)
+        }
+    }
+
+    /**
+     * [内部方法] 递归设置 View 及其子 View 的启用状态
+     */
+    private fun setViewEnabledRecursive(view: View, enabled: Boolean) {
+        view.isEnabled = enabled
+        view.alpha = if (enabled) 1.0f else 0.8f
+
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                setViewEnabledRecursive(view.getChildAt(i), enabled)
+            }
+        }
+    }
+
+    /**
+     * [内部方法] 向上查找，直到找到 contentContainer 的直接子 View (即整行 Item 的根布局)
+     */
+    private fun findItemContainer(view: View?): View {
+        var current = view
+        // 只要 current 的父布局不是 contentContainer，就继续往上找
+        while (current?.parent != null && current.parent != contentContainer) {
+            current = current.parent as View
+        }
+        return current ?: View(context)
     }
 
     /**
      * [内部方法] 更新所有依赖项的状态
-     * 当某个配置项的值发生变更时调用
-     *
-     * @param key 发生变更的配置 Key
-     * @param value 变更后的 Boolean 值
      */
     private fun updateDependencies(key: String, value: Boolean) {
         dependencies[key]?.forEach { info ->
@@ -345,8 +398,8 @@ abstract class BaseRikkaDialog(
             if (info.hideWhenDisabled) {
                 info.view.visibility = if (shouldEnable) View.VISIBLE else View.GONE
             } else {
-                info.view.isEnabled = shouldEnable
-                info.view.alpha = if (shouldEnable) 1.0f else 0.5f
+                // 使用递归方法替代直接 setEnabled
+                setViewEnabledRecursive(info.view, shouldEnable)
             }
         }
     }
@@ -509,7 +562,12 @@ abstract class BaseRikkaDialog(
         }
 
         if (onClick != null) {
-            root.setOnClickListener { onClick.invoke(root, tvSummary) }
+            root.setOnClickListener {
+                // 如果当前 View (item_root) 处于禁用状态，直接 return，不执行 onClick
+                if (!it.isEnabled) return@setOnClickListener
+
+                onClick.invoke(root, tvSummary)
+            }
             ivArrow?.visibility = View.VISIBLE
         } else {
             root.isClickable = false
@@ -525,17 +583,20 @@ abstract class BaseRikkaDialog(
 
     override fun show() {
         super.show()
-        startEnterAnimation()
-    }
+        // 重置状态
+        rootView.alpha = 1f
+        rootView.scaleX = 1f
+        rootView.scaleY = 1f
+        rootView.translationY = 0f
 
-    private fun startEnterAnimation() {
-        val animId = ModuleRes.getId("slide_in_bottom", "anim")
+        // 动画作用于 rootView
+        val animId = ModuleRes.getId("sheet_enter", "anim")
         if (animId != 0) {
             try {
                 val anim = AnimationUtils.loadAnimation(ModuleRes.getContext(), animId)
-                contentContainer.startAnimation(anim)
+                rootView.startAnimation(anim)
             } catch (e: Exception) {
-                Logger.e("Enter anim failed", e)
+                Logger.e("Enter anim error", e)
             }
         }
     }
@@ -544,36 +605,26 @@ abstract class BaseRikkaDialog(
         if (isDismissing) return
         isDismissing = true
 
-        val animId = ModuleRes.getId("slide_out_bottom", "anim")
-
+        val animId = ModuleRes.getId("sheet_exit", "anim")
         if (animId == 0) {
             super.dismiss()
             return
         }
 
         try {
+            // 动画作用于 rootView
             val anim = AnimationUtils.loadAnimation(ModuleRes.getContext(), animId)
-
             anim.setAnimationListener(object : android.view.animation.Animation.AnimationListener {
                 override fun onAnimationStart(a: android.view.animation.Animation?) {}
                 override fun onAnimationRepeat(a: android.view.animation.Animation?) {}
-
                 override fun onAnimationEnd(a: android.view.animation.Animation?) {
-                    contentContainer.post {
-                        try {
-                            super@BaseRikkaDialog.dismiss()
-                        } catch (_: Exception) {
-                            // 忽略关闭时的异常
-                        }
+                    rootView.post {
+                        try { super@BaseRikkaDialog.dismiss() } catch (_: Exception) {}
                     }
                 }
             })
-
-            contentContainer.startAnimation(anim)
-
+            rootView.startAnimation(anim)
         } catch (e: Exception) {
-            Logger.e("Exit anim failed", e)
-            // 如果动画加载出错，必须强制关闭，否则会卡死在界面上
             super.dismiss()
         }
     }

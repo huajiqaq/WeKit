@@ -2,9 +2,8 @@ package moe.ouom.wekit.ui.creator.dialog
 
 import android.app.Dialog
 import android.content.Context
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.AnimationUtils
@@ -14,7 +13,6 @@ import android.widget.ScrollView
 import androidx.appcompat.widget.Toolbar // 这次可以放心引用 AndroidX 了
 import moe.ouom.wekit.util.common.ModuleRes
 import moe.ouom.wekit.util.log.Logger
-import androidx.core.graphics.drawable.toDrawable
 
 abstract class BaseSettingsDialog(
     context: Context,
@@ -22,6 +20,7 @@ abstract class BaseSettingsDialog(
 ) : Dialog(context, getThemeId()) {
 
     private var isDismissing = false
+    protected lateinit var rootView: View
 
     companion object {
         private fun getThemeId(): Int {
@@ -34,39 +33,41 @@ abstract class BaseSettingsDialog(
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Window 设置
         window?.apply {
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-
-            val animStyleId = ModuleRes.getId("Animation.WeKit.Dialog", "style")
-            if (animStyleId != 0) {
-                setWindowAnimations(animStyleId)
-            }
+            setBackgroundDrawableResource(android.R.color.transparent)
+            setDimAmount(0.5f)
         }
 
-        // 使用 Dialog 自身的 layoutInflater，它绑定了 CommonContextWrapper
         val layoutId = ModuleRes.getId("module_dialog_frame", "layout")
         if (layoutId == 0) return // 异常处理
 
-        // 使用 context 的 inflater，这会触发 CommonContextWrapper.getSystemService
-        // 进而触发 ModuleFactory，强制使用模块 ClassLoader 加载 Toolbar
-        val rootView = layoutInflater.inflate(layoutId, null)
+        // 只加载一次，赋值给成员变量
+        rootView = layoutInflater.inflate(layoutId, null)
 
+        // 设置背景
+        val bgDrawableId = ModuleRes.getId("bg_dialog_surface", "drawable")
+        if (bgDrawableId != 0) {
+            rootView.background = ModuleRes.getDrawable("bg_dialog_surface")
+        } else {
+            val typedValue = android.util.TypedValue()
+            context.theme.resolveAttribute(android.R.attr.colorBackground, typedValue, true)
+            rootView.setBackgroundColor(typedValue.data)
+        }
+
+        // 设置内容
         setContentView(rootView)
 
-        // 初始化 Toolbar
+        // 初始化控件
         val idAppBar = ModuleRes.getId("topAppBar", "id")
-        val toolbar = findViewById<Toolbar>(idAppBar)
+        val toolbar = rootView.findViewById<Toolbar>(idAppBar)
 
-        // 如果一切正常，这里的 toolbar 就是模块 ClassLoader 加载的，不会报错
         toolbar.title = title
         toolbar.setNavigationIcon(ModuleRes.getId("ic_outline_arrow_back_ios_new_24", "drawable"))
         toolbar.setNavigationOnClickListener { dismiss() }
 
-        // 初始化容器
         val idSettingsFrame = ModuleRes.getId("settings", "id")
-        val settingsFrame = findViewById<FrameLayout>(idSettingsFrame)
+        val settingsFrame = rootView.findViewById<FrameLayout>(idSettingsFrame)
 
         val scrollView = ScrollView(context).apply {
             layoutParams = FrameLayout.LayoutParams(
@@ -102,17 +103,19 @@ abstract class BaseSettingsDialog(
 
     override fun show() {
         super.show()
-        startEnterAnimation()
-    }
+        rootView.alpha = 1f
+        rootView.scaleX = 1f
+        rootView.scaleY = 1f
+        rootView.translationY = 0f
 
-    private fun startEnterAnimation() {
-        val animId = ModuleRes.getId("slide_in_bottom", "anim")
+        // 动画 rootView
+        val animId = ModuleRes.getId("sheet_enter", "anim")
         if (animId != 0) {
             try {
                 val anim = AnimationUtils.loadAnimation(ModuleRes.getContext(), animId)
-                contentContainer.startAnimation(anim)
+                rootView.startAnimation(anim)
             } catch (e: Exception) {
-                Logger.e("Enter anim failed", e)
+                Logger.e("Enter anim error", e)
             }
         }
     }
@@ -121,36 +124,26 @@ abstract class BaseSettingsDialog(
         if (isDismissing) return
         isDismissing = true
 
-        val animId = ModuleRes.getId("slide_out_bottom", "anim")
-
+        val animId = ModuleRes.getId("sheet_exit", "anim")
         if (animId == 0) {
             super.dismiss()
             return
         }
 
         try {
+            // 动画作用于 rootView
             val anim = AnimationUtils.loadAnimation(ModuleRes.getContext(), animId)
-
             anim.setAnimationListener(object : android.view.animation.Animation.AnimationListener {
                 override fun onAnimationStart(a: android.view.animation.Animation?) {}
                 override fun onAnimationRepeat(a: android.view.animation.Animation?) {}
-
                 override fun onAnimationEnd(a: android.view.animation.Animation?) {
-                    contentContainer.post {
-                        try {
-                            super@BaseSettingsDialog.dismiss()
-                        } catch (_: Exception) {
-                            // 忽略关闭时的异常
-                        }
+                    rootView.post {
+                        try { super@BaseSettingsDialog.dismiss() } catch (_: Exception) {}
                     }
                 }
             })
-
-            contentContainer.startAnimation(anim)
-
+            rootView.startAnimation(anim)
         } catch (e: Exception) {
-            Logger.e("Exit anim failed", e)
-            // 如果动画加载出错，必须强制关闭，否则会卡死在界面上
             super.dismiss()
         }
     }
