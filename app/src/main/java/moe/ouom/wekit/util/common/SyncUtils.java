@@ -24,6 +24,7 @@ public class SyncUtils {
     public static final int PROC_APPBRAND = 1 << 2; // 小程序进程 (:appbrand0, :appbrand1 ...)
     public static final int PROC_TOOLS = 1 << 3;    // 工具进程 (:tools)
     public static final int PROC_SANDBOX = 1 << 4;  // 沙箱进程 (:sandbox)
+    public static final int PROC_HOTPOT = 1 << 5;  // 不知道是什么，好像是开红包发现的 (:hotpot)
 
     public static final int PROC_OTHERS = 1 << 31;
 
@@ -62,6 +63,8 @@ public class SyncUtils {
                 mProcType = PROC_TOOLS;
             } else if ("sandbox".equals(tail)) {
                 mProcType = PROC_SANDBOX;
+            } else if ("hotpot".equals(tail)) {
+                mProcType = PROC_HOTPOT;
             } else {
                 mProcType = PROC_OTHERS;
             }
