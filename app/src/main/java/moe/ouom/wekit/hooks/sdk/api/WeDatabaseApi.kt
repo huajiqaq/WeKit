@@ -1,11 +1,11 @@
-package moe.ouom.wekit.hooks.base.api
+package moe.ouom.wekit.hooks.sdk.api
 
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.constants.Constants
-import moe.ouom.wekit.hooks._base.ApiHookItem
-import moe.ouom.wekit.hooks._core.annotation.HookItem
+import moe.ouom.wekit.core.model.ApiHookItem
+import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.util.log.Logger
 import java.util.concurrent.CopyOnWriteArrayList
 

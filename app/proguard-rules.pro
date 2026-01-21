@@ -21,9 +21,22 @@
 }
 
 # ==========================================================
-# App Specific (项目特定)
+# App Specific
 # ==========================================================
 -keep class moe.ouom.wekit.** { *; }
+# 强制保留 Kotlin 标准库
+
+# 无论主 DEX 用没用，都留着给 Hidden DEX 用
+-keep class kotlin.** { *; }
+-keep class kotlinx.** { *; }
+-keep class org.intellij.lang.annotations.** { *; }
+-keep class org.jetbrains.annotations.** { *; }
+
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keepclassmembers class kotlinx.coroutines.CoroutineExceptionHandler {
+    <init>(...);
+}
 
 # ==========================================================
 # Xposed & LSPosed
@@ -44,6 +57,8 @@
 # 忽略相关警告
 -dontwarn de.robv.android.xposed.**
 -dontwarn io.github.libxposed.api.**
+# 忽略被抽离隐藏的 hooks 包，它们会在运行时通过内存加载
+-dontwarn moe.ouom.wekit.hooks.**
 
 # ==========================================================
 # Jetpack Compose
@@ -120,10 +135,12 @@
 # ==========================================================
 # Side Effects & Optimizations
 # ==========================================================
-# 移除 Kotlin Intrinsics 检查
--assumenosideeffects class kotlin.jvm.internal.Intrinsics {
-    public static void check*(...);
-    public static void throw*(...);
+
+-keep class kotlin.jvm.internal.Intrinsics {
+    public static void checkNotNull(java.lang.Object, java.lang.String);
+    public static void checkExpressionValueIsNotNull(java.lang.Object, java.lang.String);
+    public static void checkNotNullParameter(java.lang.Object, java.lang.String);
+    *;
 }
 
 # 移除 Objects.requireNonNull
@@ -146,6 +163,17 @@
 
 # 忽略 ServiceProvider 相关的 OSGi 注解
 -dontwarn aQute.bnd.annotation.spi.**
+
+# 修复 Kotlin Experimental 报错 #
+# 忽略旧版 Kotlin 注解缺失的警告
+-dontwarn kotlin.Experimental
+-dontwarn kotlin.Experimental$Level
+
+# 针对报错中提到的 kotlinx.io 相关的忽略
+-dontwarn kotlinx.io.**
+
+# 修复 Stax2 XML 相关的警告 #
+-dontwarn org.codehaus.stax2.**
 
 # ==========================================================
 # Build Behavior

@@ -1,4 +1,4 @@
-package moe.ouom.wekit.hooks._base;
+package moe.ouom.wekit.core.model;
 
 import android.view.View;
 

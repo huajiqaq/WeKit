@@ -1,13 +1,12 @@
-package moe.ouom.wekit.hooks._core
+package moe.ouom.wekit.hooks.core
 
 import moe.ouom.wekit.config.ConfigManager
 import moe.ouom.wekit.constants.Constants.Companion.PrekClickableXXX
 import moe.ouom.wekit.constants.Constants.Companion.PrekXXX
-import moe.ouom.wekit.hooks._base.ApiHookItem
-import moe.ouom.wekit.hooks._base.BaseClickableFunctionHookItem
-import moe.ouom.wekit.hooks._base.BaseSwitchFunctionHookItem
-import moe.ouom.wekit.hooks._core.factory.HookItemFactory
-import moe.ouom.wekit.security.SignatureVerifier
+import moe.ouom.wekit.core.model.ApiHookItem
+import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
+import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
+import moe.ouom.wekit.hooks.core.factory.HookItemFactory
 import moe.ouom.wekit.util.log.Logger
 
 
@@ -16,12 +15,7 @@ class HookItemLoader {
      * 加载并判断哪些需要加载
      */
     fun loadHookItem(process: Int) {
-        if (!SignatureVerifier.isSignatureValid()) {
-            Logger.e("[HookItemLoader]", "签名校验失败，所有 Hook 功能已被禁用")
-            return
-        }
-
-        val allHookItems = HookItemFactory.getAllItemList()
+        val allHookItems = HookItemFactory.getAllItemListStatic()
         allHookItems.forEach { hookItem ->
             val path = hookItem.path
             if (hookItem is BaseSwitchFunctionHookItem) {

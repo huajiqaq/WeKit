@@ -1,4 +1,4 @@
-package moe.ouom.wekit.hooks._core.factory;
+package moe.ouom.wekit.hooks.core.factory;
 
 import android.util.Log;
 
@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import de.robv.android.xposed.XposedBridge;
-import moe.ouom.wekit.hooks._base.BaseHookItem;
+import moe.ouom.wekit.core.model.BaseHookItem;
 import moe.ouom.wekit.util.log.LogUtils;
 
 

@@ -17,28 +17,58 @@
 #include "secrets.h"
 #include <sys/system_properties.h>
 #include "generated_checksums.h"
+#include "generated_hidden_dex.h"
+#include "skCrypter.h"
 
 #define LOG_TAG "[WeKit-TAG] wekit-native"
 
-#define ENABLE_WEKIT_LOGS
+//#define ENABLE_WEKIT_LOGS
 
-#if defined(ENABLE_WEKIT_LOGS) || !defined(NDEBUG)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
+#if !defined(ENABLE_WEKIT_LOGS)
+    #define LOG_SECURE_E(...)
+    #define LOG_SECURE(...)
+    #define LOG_SECURE_W(...)
+
 #else
-    #define LOGE(...)
-    #define LOGI(...)
-    #define LOGW(...)
+#define LOG_SECURE_E(fmt, ...) \
+        do { \
+            _Pragma("clang diagnostic push") \
+            _Pragma("clang diagnostic ignored \"-Wformat-security\"") \
+            _Pragma("clang diagnostic ignored \"-Wformat-nonliteral\"") \
+            __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, (char*)skCrypt(fmt), ##__VA_ARGS__); \
+            _Pragma("clang diagnostic pop") \
+        } while(0)
+
+#define LOG_SECURE(fmt, ...) \
+        do { \
+            _Pragma("clang diagnostic push") \
+            _Pragma("clang diagnostic ignored \"-Wformat-security\"") \
+            _Pragma("clang diagnostic ignored \"-Wformat-nonliteral\"") \
+            __android_log_print(ANDROID_LOG_INFO, LOG_TAG, (char*)skCrypt(fmt), ##__VA_ARGS__); \
+            _Pragma("clang diagnostic pop") \
+        } while(0)
+        
+#define LOG_SECURE_W(fmt, ...) \
+        do { \
+            _Pragma("clang diagnostic push") \
+            _Pragma("clang diagnostic ignored \"-Wformat-security\"") \
+            _Pragma("clang diagnostic ignored \"-Wformat-nonliteral\"") \
+            __android_log_print(ANDROID_LOG_WARN, LOG_TAG, (char*)skCrypt(fmt), ##__VA_ARGS__); \
+            _Pragma("clang diagnostic pop") \
+        } while(0)
+
 #endif
+
+#define API_EXPORT __attribute__((visibility("default")))
+#define INTERNAL_FUNC __attribute__((visibility("hidden")))
 
 
 volatile const uint32_t NSIZE __attribute__((used)) = 0x1A2B3C4D;
 
 // 全局校验状态
-static bool g_signature_valid = false;
-static bool g_dex_valid = false;
-static int g_verification_score = 0;
+INTERNAL_FUNC static bool g_signature_valid = false;
+INTERNAL_FUNC static bool g_dex_valid = false;
+INTERNAL_FUNC static int g_verification_score = 0;
 
 const char* get_target_so_path() {
 #if defined(__aarch64__)
@@ -50,13 +80,13 @@ const char* get_target_so_path() {
 #endif
 }
 
-static void process_string_data(const unsigned char *data, unsigned char key, char *output) {
+INTERNAL_FUNC INTERNAL_FUNC static void process_string_data(const unsigned char *data, unsigned char key, char *output) {
     for (int i = 0; i < 16; i++) {
         output[i] = (data[i] ^ key);
     }
 }
 
-static bool load_config_segment(int segment, char* buffer) {
+INTERNAL_FUNC INTERNAL_FUNC static bool load_config_segment(int segment, char* buffer) {
     switch(segment) {
         case 0:
             process_string_data(ENC_PART1, KEY1, buffer);
@@ -76,7 +106,7 @@ static bool load_config_segment(int segment, char* buffer) {
 }
 
 // 解密并组装预埋的 Hash 字符串
-static std::string assemble_verification_data() {
+INTERNAL_FUNC INTERNAL_FUNC static std::string assemble_verification_data() {
     char parts[4][17]; // 16 bytes + null terminator
     for (int i = 0; i < 4; i++) {
         memset(parts[i], 0, 17);
@@ -92,7 +122,7 @@ static std::string assemble_verification_data() {
     return result;
 }
 
-static std::string sha256_bytes_to_hex(const uint8_t* hash_bytes) {
+INTERNAL_FUNC static std::string sha256_bytes_to_hex(const uint8_t* hash_bytes) {
     std::stringstream ss;
     ss << std::hex << std::uppercase << std::setfill('0');
     for (int i = 0; i < 32; ++i) {
@@ -101,7 +131,7 @@ static std::string sha256_bytes_to_hex(const uint8_t* hash_bytes) {
     return ss.str();
 }
 
-static bool iequals(const std::string& a, const std::string& b) {
+INTERNAL_FUNC static bool iequals(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
     for (size_t i = 0; i < a.size(); ++i) {
         if (tolower(a[i]) != tolower(b[i])) {
@@ -111,20 +141,20 @@ static bool iequals(const std::string& a, const std::string& b) {
     return true;
 }
 
-static bool verify_checksum_internal(const char* input) {
+INTERNAL_FUNC static bool verify_checksum_internal(const char* input) {
     if (!input) return false;
     std::string expected = assemble_verification_data();
     if (expected.empty()) return false;
     return iequals(std::string(input), expected);
 }
 
-static std::string get_apk_path() {
+INTERNAL_FUNC static std::string get_apk_path() {
     char maps_path[256];
     snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", getpid());
 
     std::ifstream maps_file(maps_path);
     if (!maps_file.is_open()) {
-        LOGE("Failed to open maps file");
+        LOG_SECURE_E("Failed to open maps file");
         return "";
     }
 
@@ -138,16 +168,16 @@ static std::string get_apk_path() {
                 if (space_pos != std::string::npos) {
                     apk_path = apk_path.substr(0, space_pos);
                 }
-                // LOGI("Found APK path: %s", apk_path.c_str());
+                // LOG_SECURE("Found APK path: %s", apk_path.c_str());
                 return apk_path;
             }
         }
     }
-    LOGE("APK path not found in maps");
+    LOG_SECURE_E("APK path not found in maps");
     return "";
 }
 
-// ==================== ZIP文件结构定义 ====================
+// ==================== ZIP 文件结构定义 ====================
 
 #pragma pack(push, 1)
 struct ZipLocalFileHeader {
@@ -222,9 +252,9 @@ struct DexHeader {
 };
 #pragma pack(pop)
 
-// ==================== DEX完整性校验 ====================
+// ==================== DEX 完整性校验 ====================
 
-static bool find_eocd(int fd, off_t file_size, ZipEndOfCentralDir* eocd) {
+INTERNAL_FUNC static bool find_eocd(int fd, off_t file_size, ZipEndOfCentralDir* eocd) {
     const size_t max_search = 65535 + sizeof(ZipEndOfCentralDir);
     const size_t search_size = (file_size < max_search) ? file_size : max_search;
     off_t search_start = file_size - search_size;
@@ -241,7 +271,7 @@ static bool find_eocd(int fd, off_t file_size, ZipEndOfCentralDir* eocd) {
     return false;
 }
 
-static bool find_entry_in_apk(int fd, const ZipEndOfCentralDir& eocd, const char* target_filename, uint32_t* entry_offset, uint32_t* entry_size) {
+INTERNAL_FUNC static bool find_entry_in_apk(int fd, const ZipEndOfCentralDir& eocd, const char* target_filename, uint32_t* entry_offset, uint32_t* entry_size) {
     if (lseek(fd, eocd.central_dir_offset, SEEK_SET) < 0) return false;
     for (uint16_t i = 0; i < eocd.num_entries; i++) {
         ZipCentralDirHeader header{};
@@ -270,17 +300,17 @@ static bool find_entry_in_apk(int fd, const ZipEndOfCentralDir& eocd, const char
 
 
 
-static bool verify_single_entry_crc(int fd, const ZipEndOfCentralDir& eocd, const char* filename, uint32_t expected_crc) {
+INTERNAL_FUNC static bool verify_single_entry_crc(int fd, const ZipEndOfCentralDir& eocd, const char* filename, uint32_t expected_crc) {
     uint32_t offset, size;
 
     // 使用你现有的通用查找函数
     if (!find_entry_in_apk(fd, eocd, filename, &offset, &size)) {
-        LOGE("[!] Missing expected DEX file: %s", filename);
+        LOG_SECURE_E("[!] Missing expected DEX file: %s", filename);
         return false;
     }
 
     if (lseek(fd, offset, SEEK_SET) < 0) {
-        LOGE("[!] Failed to seek to DEX data: %s", filename);
+        LOG_SECURE_E("[!] Failed to seek to DEX data: %s", filename);
         return false;
     }
 
@@ -298,15 +328,15 @@ static bool verify_single_entry_crc(int fd, const ZipEndOfCentralDir& eocd, cons
     }
 
     if ((uint32_t)crc != expected_crc) {
-        LOGE("[!] DEX MODIFIED: %s | Real: %08x, Expected: %08x", filename, (uint32_t)crc, expected_crc);
+        LOG_SECURE_E("[!] DEX MODIFIED: %s | Real: %08x, Expected: %08x", filename, (uint32_t)crc, expected_crc);
         return false;
     }
 
-    LOGI("[V] Verified: %s", filename);
+    LOG_SECURE("[V] Verified: %s", filename);
     return true;
 }
 
-static bool verify_dex_content_directly(const std::string& apk_path) {
+INTERNAL_FUNC static bool verify_dex_content_directly(const std::string& apk_path) {
     int fd = open(apk_path.c_str(), O_RDONLY);
     if (fd < 0) return false;
 
@@ -340,23 +370,23 @@ static bool verify_dex_content_directly(const std::string& apk_path) {
     close(fd);
 
     if (all_passed) {
-        LOGI("[V] All %d DEX files verified successfully.", EXPECTED_DEX_COUNT);
+        LOG_SECURE("[V] All %d DEX files verified successfully.", EXPECTED_DEX_COUNT);
     }
 
     return all_passed;
 }
 
-static const uint8_t APK_SIG_BLOCK_MAGIC[] = {
+INTERNAL_FUNC static const uint8_t APK_SIG_BLOCK_MAGIC[] = {
         0x41, 0x50, 0x4b, 0x20, 0x53, 0x69, 0x67, 0x20,
         0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x20, 0x34, 0x32
 };
-static const uint32_t APK_SIGNATURE_SCHEME_V2_BLOCK_ID = 0x7109871a;
+INTERNAL_FUNC static const uint32_t APK_SIGNATURE_SCHEME_V2_BLOCK_ID = 0x7109871a;
 
-static void calculate_sha256(const uint8_t* data, size_t length, uint8_t* output) {
+INTERNAL_FUNC static void calculate_sha256(const uint8_t* data, size_t length, uint8_t* output) {
     compute_sha256(data, length, output);
 }
 
-static bool find_apk_signing_block(int fd, off_t file_size, const ZipEndOfCentralDir& eocd, off_t* block_offset, uint64_t* block_size) {
+INTERNAL_FUNC static bool find_apk_signing_block(int fd, off_t file_size, const ZipEndOfCentralDir& eocd, off_t* block_offset, uint64_t* block_size) {
     off_t central_dir_offset = eocd.central_dir_offset;
     if (central_dir_offset < 32) return false;
     off_t magic_offset = central_dir_offset - 16;
@@ -377,7 +407,7 @@ static bool find_apk_signing_block(int fd, off_t file_size, const ZipEndOfCentra
     return true;
 }
 
-static bool extract_v2_signature(int fd, off_t block_offset, uint64_t block_size, std::vector<uint8_t>& signature_data) {
+INTERNAL_FUNC static bool extract_v2_signature(int fd, off_t block_offset, uint64_t block_size, std::vector<uint8_t>& signature_data) {
     off_t pairs_offset = block_offset + 8;
     uint64_t pairs_size = block_size - 24;
     if (lseek(fd, pairs_offset, SEEK_SET) < 0) return false;
@@ -404,7 +434,7 @@ static bool extract_v2_signature(int fd, off_t block_offset, uint64_t block_size
     return false;
 }
 
-static bool extract_certificate_from_v2(const std::vector<uint8_t>& signature_data, std::vector<uint8_t>& certificate) {
+INTERNAL_FUNC static bool extract_certificate_from_v2(const std::vector<uint8_t>& signature_data, std::vector<uint8_t>& certificate) {
     if (signature_data.size() < 4) return false;
     size_t offset = 0;
 
@@ -444,14 +474,14 @@ static bool extract_certificate_from_v2(const std::vector<uint8_t>& signature_da
     certificate.resize(cert_len);
     memcpy(certificate.data(), &signature_data[offset], cert_len);
 
-    LOGI("Extracted certificate: size=%u", cert_len);
+    LOG_SECURE("Extracted certificate: size=%u", cert_len);
     return true;
 }
 
-static bool verify_apk_signature_direct(const std::string& apk_path) {
+INTERNAL_FUNC static bool verify_apk_signature_direct(const std::string& apk_path) {
     int fd = open(apk_path.c_str(), O_RDONLY);
     if (fd < 0) {
-        LOGE("Failed to open APK");
+        LOG_SECURE_E("Failed to open APK");
         return false;
     }
 
@@ -462,7 +492,7 @@ static bool verify_apk_signature_direct(const std::string& apk_path) {
     ZipEndOfCentralDir eocd;
     if (!find_eocd(fd, file_size, &eocd)) {
         close(fd);
-        LOGE("EOCD not found");
+        LOG_SECURE_E("EOCD not found");
         return false;
     }
 
@@ -470,7 +500,7 @@ static bool verify_apk_signature_direct(const std::string& apk_path) {
     uint64_t block_size;
     if (!find_apk_signing_block(fd, file_size, eocd, &block_offset, &block_size)) {
         close(fd);
-        LOGW("No V2 Signing Block found");
+        LOG_SECURE_W("No V2 Signing Block found");
         return false;
     }
 
@@ -493,31 +523,31 @@ static bool verify_apk_signature_direct(const std::string& apk_path) {
     std::string expected_hex = assemble_verification_data();
 
     if (calculated_hex == expected_hex) {
-        LOGI("[V] Certificate Verification PASSED");
+        LOG_SECURE("[V] Certificate Verification PASSED");
         return true;
     } else {
-        LOGE("[!] Certificate Verification FAILED!");
-        LOGE("[!] Calculated: %s", calculated_hex.c_str());
-        LOGE("[!] Expected:   %s", expected_hex.c_str());
+        LOG_SECURE_E("[!] Certificate Verification FAILED!");
+        LOG_SECURE_E("[!] Calculated: %s", calculated_hex.c_str());
+        LOG_SECURE_E("[!] Expected:   %s", expected_hex.c_str());
         return false;
     }
 
     if (iequals(calculated_hex, expected_hex)) {
-        LOGI("[V] Certificate Verification PASSED");
+        LOG_SECURE("[V] Certificate Verification PASSED");
         return true;
     } else {
-        LOGE("[!] Certificate Verification FAILED! Hash mismatch.");
+        LOG_SECURE_E("[!] Certificate Verification FAILED! Hash mismatch.");
         return false;
     }
 }
 
-static bool verify_so_integrity(int fd, const ZipEndOfCentralDir& eocd) {
+INTERNAL_FUNC static bool verify_so_integrity(int fd, const ZipEndOfCentralDir& eocd) {
     uint32_t offset, size;
 
     const char* target_path = get_target_so_path();
 
     if (!find_entry_in_apk(fd, eocd, target_path, &offset, &size)) {
-        LOGE("Could not find SO in APK: %s", target_path);
+        LOG_SECURE_E("Could not find SO in APK: %s", target_path);
         return false;
     }
 
@@ -525,20 +555,20 @@ static bool verify_so_integrity(int fd, const ZipEndOfCentralDir& eocd) {
 
     if (expected_size == 0x1A2B3C4D) {
 #ifdef NDEBUG
-        LOGE("[!] FATAL: SO integrity check failed. Binary not patched!");
+        LOG_SECURE_E("[!] FATAL: SO integrity check failed. Binary not patched!");
         return false;
 #else
-        LOGW("[!] Debug build detected. Skipping SO size check.");
+        LOG_SECURE_W("[!] Debug build detected. Skipping SO size check.");
         return true;
 #endif
     }
 
     if (size != expected_size) {
-        LOGE("[!] SO MODIFIED! Expected Size: %u, Actual Size in APK: %u", expected_size, size);
+        LOG_SECURE_E("[!] SO MODIFIED! Expected Size: %u, Actual Size in APK: %u", expected_size, size);
         return false;
     }
 
-    LOGI("[V] SO size verified: %u", size);
+    LOG_SECURE("[V] SO size verified: %u", size);
     return true;
 }
 
@@ -550,16 +580,16 @@ void* fix_thread(void* arg) {
     return nullptr;
 }
 
-static void onFailed(JNIEnv* env) {
+INTERNAL_FUNC static void onFailed(JNIEnv* env) {
     pthread_t thread_id;
     int result = pthread_create(&thread_id, nullptr, fix_thread, nullptr);
     if (result == 0) pthread_detach(thread_id);
     else abort();
 }
 
-static int perform_multi_dimensional_verification(JNIEnv* env, const char* signature_hash) {
+INTERNAL_FUNC static int perform_multi_dimensional_verification(JNIEnv* env, const char* signature_hash) {
 #if !defined(NDEBUG) || defined(DEBUG)
-    LOGW("[WeKit-Debug] Debug Build detected. Bypassing verification.");
+    LOG_SECURE_W("[WeKit-Debug] Debug Build detected. Bypassing verification.");
 
     g_signature_valid = true;
     g_dex_valid = true;
@@ -571,11 +601,11 @@ static int perform_multi_dimensional_verification(JNIEnv* env, const char* signa
     std::string apk_path = get_apk_path();
 
     if (verify_checksum_internal(signature_hash)) {
-        LOGI("[V] Java-layer signature verification passed");
+        LOG_SECURE("[V] Java-layer signature verification passed");
         score += 20;
         g_signature_valid = true;
     } else {
-        LOGE("[X] FATAL: Java-layer signature verification failed!");
+        LOG_SECURE_E("[X] FATAL: Java-layer signature verification failed!");
         g_signature_valid = false;
         onFailed(env);
         return 0;
@@ -583,10 +613,10 @@ static int perform_multi_dimensional_verification(JNIEnv* env, const char* signa
 
     if (!apk_path.empty()) {
         if (verify_apk_signature_direct(apk_path)) {
-            LOGI("[V] Native APK signature direct verification passed");
+            LOG_SECURE("[V] Native APK signature direct verification passed");
             score += 20;
         } else {
-            LOGW("[!] FATAL: Native APK signature direct verification failed!");
+            LOG_SECURE_W("[!] FATAL: Native APK signature direct verification failed!");
             onFailed(env);
             return 0;
         }
@@ -596,7 +626,7 @@ static int perform_multi_dimensional_verification(JNIEnv* env, const char* signa
         score += 20;
         g_dex_valid = true;
     } else {
-        LOGE("[X] FATAL: DEX integrity verification failed!");
+        LOG_SECURE_E("[X] FATAL: DEX integrity verification failed!");
         g_dex_valid = false;
         onFailed(env);
         return 0;
@@ -606,7 +636,7 @@ static int perform_multi_dimensional_verification(JNIEnv* env, const char* signa
         score += 20;
         g_dex_valid = true;
     } else {
-        LOGE("[X] FATAL: DEX integrity verification failed!");
+        LOG_SECURE_E("[X] FATAL: DEX integrity verification failed!");
         g_dex_valid = false;
         onFailed(env);
         return 0;
@@ -624,64 +654,93 @@ static int perform_multi_dimensional_verification(JNIEnv* env, const char* signa
                         so_check_passed = true;
                     }
                 } else {
-                    LOGE("Failed to find EOCD for SO check");
+                    LOG_SECURE_E("Failed to find EOCD for SO check");
                 }
             }
             close(fd);
         } else {
-            LOGE("Failed to open APK for SO check");
+            LOG_SECURE_E("Failed to open APK for SO check");
         }
     }
 
     if (so_check_passed) {
         score += 20;
     } else {
-        LOGE("[X] FATAL: SO integrity verification failed!");
+        LOG_SECURE_E("[X] FATAL: SO integrity verification failed!");
         onFailed(env);
         return 0;
     }
 
-    LOGI("=== Verification Passed. Score: %d/100 ===", score);
+    LOG_SECURE("=== Verification Passed. Score: %d/100 ===", score);
     return score;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_moe_ouom_wekit_loader_core_WeKitNative_doInit(JNIEnv* env, jclass clazz, jstring signatureHash) {
+// Java_moe_ouom_wekit_loader_core_WeKitNative_doInit
+INTERNAL_FUNC static jboolean n_init(JNIEnv* env, jobject thiz, jstring signatureHash) {
     if (signatureHash == nullptr) { onFailed(env); return JNI_FALSE; }
     const char* hashStr = env->GetStringUTFChars(signatureHash, nullptr);
     if (hashStr == nullptr) { onFailed(env); return JNI_FALSE; }
     g_verification_score = perform_multi_dimensional_verification(env, hashStr);
     env->ReleaseStringUTFChars(signatureHash, hashStr);
-    if (g_verification_score >= 80) {
-        LOGI("Verification SUCCESS");
-        return JNI_TRUE;
-    } else {
-        LOGE("Verification FAILED finally (score: %d)", g_verification_score);
-        onFailed(env);
-        return JNI_FALSE;
-    }
+    return JNI_TRUE;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_moe_ouom_wekit_loader_core_WeKitNative_nativeCheck(JNIEnv* env, jclass clazz) {
+// Java_moe_ouom_wekit_loader_core_WeKitNative_nativeCheck
+INTERNAL_FUNC static jboolean n_check(JNIEnv* env, jobject thiz) {
     if (!g_signature_valid || !g_dex_valid) {
-        LOGE("Integrity check failed: invalid state");
         onFailed(env);
         return JNI_FALSE;
     }
     if (g_verification_score < 80) {
-        LOGE("Integrity check failed: score too low (%d)", g_verification_score);
         onFailed(env);
         return JNI_FALSE;
     }
-    LOGI("Integrity check passed");
+    return JNI_TRUE;
+}
+
+// Java_moe_ouom_wekit_loader_core_WeKitNative_getHiddenDex
+INTERNAL_FUNC static jbyteArray n_get_dex(JNIEnv* env, jobject thiz) {
+    jbyteArray result = env->NewByteArray(HIDDEN_DEX_SIZE);
+    if (result == nullptr) return nullptr;
+
+    std::vector<jbyte> temp_buffer(HIDDEN_DEX_SIZE);
+    for (int i = 0; i < HIDDEN_DEX_SIZE; i++) {
+        temp_buffer[i] = HIDDEN_DEX_DATA[i] ^ HIDDEN_DEX_KEY;
+    }
+
+    env->SetByteArrayRegion(result, 0, HIDDEN_DEX_SIZE, temp_buffer.data());
+    return result;
+}
+
+INTERNAL_FUNC static int registerNativeMethods(JNIEnv* env, const char* className, const JNINativeMethod* methods, int numMethods) {
+    jclass clazz = env->FindClass(className);
+    if (clazz == nullptr) {
+        return JNI_FALSE;
+    }
+    if (env->RegisterNatives(clazz, methods, numMethods) < 0) {
+        return JNI_FALSE;
+    }
     return JNI_TRUE;
 }
 
 
-extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-    JNIEnv* env;
-    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) return JNI_ERR;
-    LOGI("WeKit native library loaded");
+// 映射表
+INTERNAL_FUNC static const JNINativeMethod gMethods[] = {
+        // Java方法名,   签名,                     函数指针
+        {"doInit",      "(Ljava/lang/String;)Z", (void*)n_init},
+        {"nativeCheck", "()Z",                   (void*)n_check},
+        {"getHiddenDex","()[B",                  (void*)n_get_dex}
+};
+
+API_EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+    JNIEnv* env = nullptr;
+    if (vm->GetEnv((void**)&env, JNI_VERSION_1_6) != JNI_OK) {
+        return JNI_ERR;
+    }
+
+    if (registerNativeMethods(env, skCrypt("moe/ouom/wekit/loader/core/WeKitNative"), gMethods, sizeof(gMethods) / sizeof(gMethods[0])) != JNI_TRUE) {
+        return JNI_ERR;
+    }
+
     return JNI_VERSION_1_6;
 }

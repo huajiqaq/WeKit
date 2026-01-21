@@ -12,6 +12,11 @@ public class WeKitNative {
     private static final String TAG = "WeKitNative";
     private static volatile boolean sLibraryLoaded = false;
 
+    /**
+     * 获取加密隐藏的 DEX 数据
+     */
+    public static native byte[] getHiddenDex();
+
     public static void setLibraryLoaded() {
         sLibraryLoaded = true;
         Logger.i(TAG, "native library marked as loaded");

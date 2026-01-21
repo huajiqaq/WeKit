@@ -1,4 +1,6 @@
-package moe.ouom.wekit.hooks._core.factory;
+package moe.ouom.wekit.hooks.core.factory;
+
+import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -6,13 +8,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import moe.ouom.wekit.hooks._base.BaseClickableFunctionHookItem;
-import moe.ouom.wekit.hooks._base.BaseHookItem;
-import moe.ouom.wekit.hooks._base.BaseSwitchFunctionHookItem;
+import moe.ouom.wekit.core.bridge.api.IHookFactoryDelegate;
+import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem;
+import moe.ouom.wekit.core.model.BaseHookItem;
+import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem;
 import moe.ouom.wekit.hooks.gen.HookItemEntryList;
 
+public class HookItemFactory implements IHookFactoryDelegate {
+    public static final HookItemFactory INSTANCE = new HookItemFactory();
 
-public class HookItemFactory {
     private static final Map<Class<? extends BaseHookItem>, BaseHookItem> ITEM_MAP = new HashMap<>();
 
     static {
@@ -22,7 +26,31 @@ public class HookItemFactory {
         }
     }
 
-    public static BaseSwitchFunctionHookItem findHookItemByPath(String path) {
+    @Override
+    public BaseSwitchFunctionHookItem findHookItemByPath(String path) {
+        return findHookItemByPathStatic(path);
+    }
+
+    @NonNull
+    @Override
+    public List<BaseSwitchFunctionHookItem> getAllSwitchFunctionItemList() {
+        return getAllSwitchFunctionItemListStatic();
+    }
+
+    @NonNull
+    @Override
+    public List<BaseClickableFunctionHookItem> getAllClickableFunctionItemList() {
+        return getAllClickableFunctionItemListStatic();
+    }
+
+    @NonNull
+    @Override
+    public List<BaseHookItem> getAllItemList() {
+        return getAllItemListStatic();
+    }
+
+
+    public static BaseSwitchFunctionHookItem findHookItemByPathStatic(String path) {
         for (BaseHookItem item : ITEM_MAP.values()) {
             if (item.getPath().equals(path)) {
                 return (BaseSwitchFunctionHookItem) item;
@@ -31,7 +59,7 @@ public class HookItemFactory {
         return null;
     }
 
-    public static List<BaseSwitchFunctionHookItem> getAllSwitchFunctionItemList() {
+    public static List<BaseSwitchFunctionHookItem> getAllSwitchFunctionItemListStatic() {
         ArrayList<BaseSwitchFunctionHookItem> result = new ArrayList<>();
         for (BaseHookItem item : ITEM_MAP.values()) {
             if (item instanceof BaseSwitchFunctionHookItem) {
@@ -42,7 +70,7 @@ public class HookItemFactory {
         return result;
     }
 
-    public static List<BaseClickableFunctionHookItem> getAllClickableFunctionItemList() {
+    public static List<BaseClickableFunctionHookItem> getAllClickableFunctionItemListStatic() {
         ArrayList<BaseClickableFunctionHookItem> result = new ArrayList<>();
         for (BaseHookItem item : ITEM_MAP.values()) {
             if (item instanceof BaseClickableFunctionHookItem) {
@@ -53,9 +81,8 @@ public class HookItemFactory {
         return result;
     }
 
-
-    public static List<BaseHookItem> getAllItemList() {
-        return List.copyOf(ITEM_MAP.values());
+    public static List<BaseHookItem> getAllItemListStatic() {
+        return new ArrayList<>(ITEM_MAP.values());
     }
 
     public static <T extends BaseHookItem> T getItem(Class<T> clazz) {

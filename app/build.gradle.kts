@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.ByteArrayOutputStream
 import java.io.RandomAccessFile
 import java.lang.Long.toHexString
@@ -7,8 +8,6 @@ import java.nio.ByteOrder
 import java.util.Locale
 import java.util.UUID
 import java.util.zip.CRC32
-import java.nio.file.Files
-import java.nio.file.Paths
 
 // 定义生成的头文件路径
 val secretsHeaderDir = file("src/main/cpp/include")
@@ -18,6 +17,8 @@ val MAGIC_BYTES = ByteBuffer.allocate(4)
     .order(ByteOrder.LITTLE_ENDIAN)
     .putInt(MAGIC_PLACEHOLDER_INT)
     .array()
+
+val sensitivePackagePath = "moe/ouom/wekit/hooks"
 
 plugins {
     id("build-logic.android.application")
@@ -146,6 +147,29 @@ android {
     }
 }
 
+
+fun isHooksDirPresent(task: Task): Boolean {
+    return task.outputs.files.any { outputDir ->
+        File(outputDir, sensitivePackagePath).exists()
+    }
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    if (name.contains("Release")) {
+        outputs.upToDateWhen { task ->
+            isHooksDirPresent(task)
+        }
+    }
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    if (name.contains("Release")) {
+        outputs.upToDateWhen { task ->
+            isHooksDirPresent(task)
+        }
+    }
+}
+
 fun String.capitalizeUS() = replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString() }
 
 val adbProvider = androidComponents.sdkComponents.adb
@@ -218,6 +242,8 @@ tasks.register("generateDexChecksum") {
     group = "wekit"
     description = "Calculates CRC32 of ALL classes*.dex files and updates generated_checksums.h"
     outputs.file(generatedHeaderFile)
+    outputs.upToDateWhen { false }
+    mustRunAfter(tasks.named("minifyReleaseWithR8"))
 
     doLast {
         // 获取 R8/混淆后的输出目录
@@ -233,6 +259,8 @@ tasks.register("generateDexChecksum") {
             if (!secretsHeaderDir.exists()) secretsHeaderDir.mkdirs()
             generatedHeaderFile.writeText("""
                 #pragma once
+                #include <vector>
+                #include <cstdint>
                 static const int EXPECTED_DEX_COUNT = 0;
                 static const uint32_t EXPECTED_DEX_CRCS[] = {};
             """.trimIndent())
@@ -326,26 +354,124 @@ tasks.register("patchSoSize") {
     }
 }
 
+tasks.register("protectSensitiveCode") {
+    group = "wekit-protection"
+
+    val variantName = "Release"
+    val javacTask = tasks.findByName("compile${variantName}JavaWithJavac")
+    val kotlincTask = tasks.findByName("compile${variantName}Kotlin")
+    val r8Task = tasks.findByName("minify${variantName}WithR8")
+
+    dependsOn(javacTask, kotlincTask)
+    r8Task?.mustRunAfter(this)
+
+    val headerFile = file("src/main/cpp/include/generated_hidden_dex.h")
+
+    doLast {
+        val classFiles = mutableListOf<File>()
+        val packagePath = sensitivePackagePath
+
+        val buildDir = layout.buildDirectory.asFile.get()
+        val searchDirs = listOf(
+            File(buildDir, "intermediates/javac/release/compileReleaseJavaWithJavac/classes"),
+            File(buildDir, "tmp/kotlin-classes/release")
+        )
+
+        searchDirs.forEach { dir ->
+            if (dir.exists()) {
+                dir.walkTopDown().forEach { file ->
+                    if (file.isFile && file.extension == "class") {
+                        val normalizedPath = file.absolutePath.replace('\\', '/')
+                        val isHookPackage = normalizedPath.contains("moe/ouom/wekit/hooks")
+                        val isPublicPackage = normalizedPath.contains("/_")
+
+                        if (isHookPackage && !isPublicPackage) {
+                            classFiles.add(file)
+                        }
+
+                        if (normalizedPath.contains("StringsKt")) {
+                            classFiles.add(file)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (classFiles.isEmpty()) {
+            println("❌ [Protect] ERROR: Still no classes in $packagePath")
+            return@doLast
+        }
+
+        println("✅ [Protect] Intercepted ${classFiles.size} classes BEFORE R8/Multi-DEX.")
+
+        val tempDir = file("${buildDir}/tmp/hidden_dex_build")
+        tempDir.deleteRecursively(); tempDir.mkdirs()
+
+        val d8Name = if (System.getProperty("os.name").lowercase().contains("win")) "d8.bat" else "d8"
+        val d8Path = "${android.sdkDirectory}/build-tools/${android.buildToolsVersion}/$d8Name"
+
+        project.exec {
+            commandLine(d8Path, "--release", "--min-api", "26", "--output", tempDir.absolutePath, *classFiles.map { it.absolutePath }.toTypedArray())
+        }
+
+        val dexFile = File(tempDir, "classes.dex")
+        if (dexFile.exists()) {
+            val bytes = dexFile.readBytes()
+            val xorKey = 0x32.toByte()
+            val hexData = bytes.map { (it.toInt() xor xorKey.toInt()).toByte() }.joinToString(",") { "0x%02x".format(it) }
+
+            headerFile.writeText("""
+                // AUTOMATICALLY GENERATED BY GRADLE
+                // Generated at: ${System.currentTimeMillis()}
+            
+                #pragma once
+                static const int HIDDEN_DEX_SIZE = ${bytes.size};
+                static const unsigned char HIDDEN_DEX_KEY = 0x${"%02x".format(xorKey)};
+                static const unsigned char HIDDEN_DEX_DATA[] = { $hexData };
+            """.trimIndent())
+
+            println("🚀 [Protect] Hidden DEX generated: ${bytes.size} bytes.")
+
+            classFiles.forEach { it.delete() }
+            println("🗑️ [Protect] Deleted original classes to exclude them from Multi-DEX.")
+        }
+    }
+}
+
 afterEvaluate {
     android.applicationVariants.forEach { variant ->
         if (variant.buildType.name.equals("release", ignoreCase = true)) {
             val variantName = variant.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
             println("⚙️ [WeKit] Hooking Release Build for: $variantName")
 
+            val javacTask = tasks.findByName("compile${variantName}JavaWithJavac") as? JavaCompile
             val r8Task = tasks.findByName("minify${variantName}WithR8")
             val checksumTask = tasks.findByName("generateDexChecksum")
             val stripTask = tasks.findByName("strip${variantName}DebugSymbols")
             val packageTask = tasks.findByName("package${variantName}")
+            val protectTask = tasks.findByName("protectSensitiveCode")
+
+            if (javacTask != null && protectTask != null) {
+                // 必须在 Java 编译后立即执行，防止 Class 进入 R8 或主 DEX
+                protectTask.dependsOn(javacTask)
+                // 强制让 R8 必须在代码抽离之后运行
+                r8Task?.mustRunAfter(protectTask)
+            }
 
             if (r8Task != null && checksumTask != null) {
                 checksumTask.dependsOn(r8Task)
                 tasks.configureEach {
                     val taskName = this.name
                     if (taskName.startsWith("buildCMake") && taskName.contains("Rel")) {
+                        if (protectTask != null) {
+                            this.dependsOn(protectTask)
+                            println("   🔒 Task '$taskName' now depends on protectSensitiveCode")
+                        }
                         println("   🔒 Locking task '$taskName' to wait for Dex Checksum")
                         this.dependsOn(checksumTask)
                     }
                     if (taskName.startsWith("configureCMake") && taskName.contains("Rel")) {
+                        if (protectTask != null) this.dependsOn(protectTask)
                         this.dependsOn(checksumTask)
                     }
                 }

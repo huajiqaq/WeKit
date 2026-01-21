@@ -1,9 +1,10 @@
-package moe.ouom.wekit.hooks._base;
+package moe.ouom.wekit.core.model;
 
 import static de.robv.android.xposed.XposedHelpers.findClass;
 import static de.robv.android.xposed.XposedHelpers.findConstructorExact;
 import static moe.ouom.wekit.constants.Constants.PrekCfgXXX;
 
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
 import java.lang.reflect.Constructor;
@@ -12,19 +13,21 @@ import java.lang.reflect.Member;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import moe.ouom.wekit.config.ConfigManager;
-import moe.ouom.wekit.hooks._core.factory.ExceptionFactory;
+import moe.ouom.wekit.hooks.core.factory.ExceptionFactory;
 import moe.ouom.wekit.loader.startup.HybridClassLoader;
 import moe.ouom.wekit.util.log.Logger;
 
 /**
  * 所有 hook 功能的基础类, 都应该要继承这个类
  */
+@Keep
 public abstract class BaseHookItem {
 
     /**
      * 功能名称
      */
     private String path;
+
     /**
      * 功能描述
      */

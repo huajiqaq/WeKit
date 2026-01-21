@@ -1,4 +1,4 @@
-package moe.ouom.wekit.hooks._base;
+package moe.ouom.wekit.core.model;
 
 import de.robv.android.xposed.XC_MethodHook;
 import moe.ouom.wekit.util.common.SyncUtils;

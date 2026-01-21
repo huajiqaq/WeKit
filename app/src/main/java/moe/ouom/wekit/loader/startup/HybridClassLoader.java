@@ -1,12 +1,12 @@
-
 package moe.ouom.wekit.loader.startup;
 
 import android.content.Context;
+import java.lang.reflect.Field;
+import moe.ouom.wekit.util.log.Logger;
 
 public class HybridClassLoader extends ClassLoader {
 
     private static final ClassLoader sBootClassLoader = Context.class.getClassLoader();
-
     public static final HybridClassLoader INSTANCE = new HybridClassLoader();
 
     private HybridClassLoader() {
@@ -14,7 +14,8 @@ public class HybridClassLoader extends ClassLoader {
     }
 
     private static ClassLoader sLoaderParentClassLoader;
-    private static ClassLoader sHostClassLoader;
+    // volatile 保证多线程可见性
+    private static volatile ClassLoader sHostClassLoader;
 
     public static void setLoaderParentClassLoader(ClassLoader loaderClassLoader) {
         if (loaderClassLoader == HybridClassLoader.class.getClassLoader()) {
@@ -28,11 +29,50 @@ public class HybridClassLoader extends ClassLoader {
         sHostClassLoader = hostClassLoader;
     }
 
+    /**
+     * 如果当前静态变量为空，
+     * 则尝试去父级 ClassLoader 里找那个存了值的 HybridClassLoader 类
+     */
     public static ClassLoader getHostClassLoader() {
+        if (sHostClassLoader != null) {
+            return sHostClassLoader;
+        }
+
+        synchronized (HybridClassLoader.class) {
+            // 双重检查
+            if (sHostClassLoader != null) return sHostClassLoader;
+
+            try {
+                Logger.i("HybridClassLoader: Local sHostClassLoader is null, trying reflection lookup...");
+
+                ClassLoader myLoader = HybridClassLoader.class.getClassLoader();
+                assert myLoader != null;
+                ClassLoader parentLoader = myLoader.getParent();
+
+                if (parentLoader != null) {
+                    Class<?> originalClass = parentLoader.loadClass(HybridClassLoader.class.getName());
+
+                    if (originalClass != null && originalClass != HybridClassLoader.class) {
+                        Field targetField = originalClass.getDeclaredField("sHostClassLoader");
+                        targetField.setAccessible(true);
+                        Object remoteValue = targetField.get(null);
+
+                        if (remoteValue instanceof ClassLoader) {
+                            sHostClassLoader = (ClassLoader) remoteValue;
+                            Logger.i("HybridClassLoader: Successfully stole HostClassLoader from outer world!");
+                        } else {
+                            Logger.e("HybridClassLoader: Reflection found null or invalid object.");
+                        }
+                    }
+                }
+            } catch (Throwable e) {
+                Logger.e("HybridClassLoader: Failed to bridge ClassLoader", e);
+            }
+        }
+
         return sHostClassLoader;
     }
 
-    // we shall use findClass() instead of loadClass(), because we did not have a parent ClassLoader
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
         try {
@@ -43,34 +83,25 @@ public class HybridClassLoader extends ClassLoader {
             return sLoaderParentClassLoader.loadClass(name);
         }
         if (isConflictingClass(name)) {
-            // Nevertheless, this will not interfere with the host application,
-            // classes in host application SHOULD find with their own ClassLoader, eg Class.forName()
-            // use shipped androidx and kotlin lib.
             throw new ClassNotFoundException(name);
         }
-        // The ClassLoader for some apk-modifying frameworks are terrible, XposedBridge.class.getClassLoader()
-        // is the sane as Context.getClassLoader(), which mess up with 3rd lib, can cause the ART to crash.
         if (sLoaderParentClassLoader != null) {
             try {
                 return sLoaderParentClassLoader.loadClass(name);
             } catch (ClassNotFoundException ignored) {
             }
         }
-        if (sHostClassLoader != null && isHostClass(name)) {
+        // 关键点：这里使用了 getHostClassLoader() 而不是直接访问 sHostClassLoader
+        ClassLoader host = getHostClassLoader();
+        if (host != null && isHostClass(name)) {
             try {
-                return sHostClassLoader.loadClass(name);
+                return host.loadClass(name);
             } catch (ClassNotFoundException ignored) {
             }
         }
         throw new ClassNotFoundException(name);
     }
 
-    /**
-     * Check whether the class is a host class.
-     *
-     * @param name the FQCN of the class
-     * @return true if the class is a host class
-     */
     public static boolean isHostClass(String name) {
         return name.startsWith("com.tencent.")
                 || name.startsWith("com.qq.")
@@ -79,15 +110,8 @@ public class HybridClassLoader extends ClassLoader {
                 || name.startsWith("cooperation.")
                 || name.startsWith("com.tme.")
                 || name.startsWith("dov.");
-        // add more if needed
     }
 
-    /**
-     * 把宿主和模块共有的 package 扔这里.
-     *
-     * @param name NonNull, class name
-     * @return true if conflicting
-     */
     public static boolean isConflictingClass(String name) {
         return name.startsWith("androidx.") || name.startsWith("android.support.")
                 || name.startsWith("kotlin.") || name.startsWith("kotlinx.")
@@ -107,5 +131,4 @@ public class HybridClassLoader extends ClassLoader {
                 || name.startsWith("javax.annotation.")
                 || name.startsWith("_COROUTINE.");
     }
-
 }

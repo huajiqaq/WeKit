@@ -19,7 +19,7 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
-import moe.ouom.wekit.hooks._core.annotation.HookItem
+import moe.ouom.wekit.hooks.core.annotation.HookItem
 
 /**
  * KSP 处理器根据 @HookItem 注解扫描并生成代码
@@ -40,7 +40,7 @@ class HookItemScanner(
     override fun process(resolver: Resolver): List<KSAnnotated> {
         // 获取所有带有 @HookItem 注解的类
         val symbols =
-            resolver.getSymbolsWithAnnotation("moe.ouom.wekit.hooks._core.annotation.HookItem")
+            resolver.getSymbolsWithAnnotation("moe.ouom.wekit.hooks.core.annotation.HookItem")
                 .filterIsInstance<KSClassDeclaration>()
                 .toList()
 
@@ -48,7 +48,7 @@ class HookItemScanner(
 
         // 准备返回类型和基类
         val returnType = ClassName("kotlin.collections", "List")
-        val genericsType = ClassName("moe.ouom.wekit.hooks._base", "BaseHookItem")
+        val genericsType = ClassName("moe.ouom.wekit.core.model", "BaseHookItem")
 
         // 创建方法构建器
         val methodBuilder = FunSpec.builder("getAllHookItems")

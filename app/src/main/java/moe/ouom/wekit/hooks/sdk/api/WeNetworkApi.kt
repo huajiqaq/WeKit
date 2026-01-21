@@ -1,9 +1,9 @@
-package moe.ouom.wekit.hooks.base.api
+package moe.ouom.wekit.hooks.sdk.api
 
 import android.annotation.SuppressLint
 import moe.ouom.wekit.dexkit.TargetManager
-import moe.ouom.wekit.hooks._base.ApiHookItem
-import moe.ouom.wekit.hooks._core.annotation.HookItem
+import moe.ouom.wekit.core.model.ApiHookItem
+import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.util.log.Logger
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier

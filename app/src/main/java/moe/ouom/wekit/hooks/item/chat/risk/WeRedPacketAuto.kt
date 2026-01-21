@@ -9,10 +9,10 @@ import moe.ouom.wekit.config.ConfigManager
 import moe.ouom.wekit.constants.Constants.Companion.TYPE_LUCKY_MONEY
 import moe.ouom.wekit.constants.Constants.Companion.TYPE_LUCKY_MONEY_EXCLUSIVE
 import moe.ouom.wekit.dexkit.TargetManager
-import moe.ouom.wekit.hooks._base.BaseClickableFunctionHookItem
-import moe.ouom.wekit.hooks._core.annotation.HookItem
-import moe.ouom.wekit.hooks.base.api.WeDatabaseApi
-import moe.ouom.wekit.hooks.base.api.WeNetworkApi
+import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
+import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.hooks.sdk.api.WeDatabaseApi
+import moe.ouom.wekit.hooks.sdk.api.WeNetworkApi
 import moe.ouom.wekit.ui.creator.dialog.item.WeRedPacketConfigDialog
 import moe.ouom.wekit.util.log.Logger
 import org.json.JSONObject

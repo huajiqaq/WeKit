@@ -31,7 +31,10 @@ public class SignatureVerifier {
      * 验证应用签名
      */
     public static boolean verifySignature(@NonNull Context context) {
-//        return true;
+        if (BuildConfig.DEBUG) {
+            return true;
+        }
+
         if (sVerified) {
             return sSignatureValid;
         }
@@ -127,7 +130,9 @@ public class SignatureVerifier {
      * 检查签名是否有效
      */
     public static boolean isSignatureValid() {
-//        return true;
+        if (BuildConfig.DEBUG) {
+            return true;
+        }
         return sVerified && sSignatureValid;
     }
 

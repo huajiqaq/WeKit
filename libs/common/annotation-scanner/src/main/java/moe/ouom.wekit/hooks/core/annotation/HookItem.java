@@ -1,4 +1,4 @@
-package moe.ouom.wekit.hooks._core.annotation;
+package moe.ouom.wekit.hooks.core.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

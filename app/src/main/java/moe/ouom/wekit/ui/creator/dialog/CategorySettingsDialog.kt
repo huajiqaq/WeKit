@@ -7,9 +7,9 @@ import android.widget.TextView
 import com.google.android.material.materialswitch.MaterialSwitch
 import moe.ouom.wekit.config.ConfigManager
 import moe.ouom.wekit.constants.Constants
-import moe.ouom.wekit.hooks._base.BaseClickableFunctionHookItem
-import moe.ouom.wekit.hooks._base.BaseSwitchFunctionHookItem
-import moe.ouom.wekit.hooks._core.factory.HookItemFactory
+import moe.ouom.wekit.core.bridge.HookFactoryBridge
+import moe.ouom.wekit.core.model.BaseClickableFunctionHookItem
+import moe.ouom.wekit.core.model.BaseSwitchFunctionHookItem
 import moe.ouom.wekit.util.common.ModuleRes
 import moe.ouom.wekit.util.log.Logger
 
@@ -19,7 +19,7 @@ class CategorySettingsDialog(
 ) : BaseSettingsDialog(context, categoryName) {
 
     override fun initList() {
-        val allItems = HookItemFactory.getAllItemList()
+        val allItems = HookFactoryBridge.getAllItemList()
 
         val targetItems = allItems.filter { item ->
             item.path.startsWith("$categoryName/")
