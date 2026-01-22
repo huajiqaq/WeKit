@@ -176,6 +176,24 @@
 -dontwarn org.codehaus.stax2.**
 
 # ==========================================================
+# DexKit
+# ==========================================================
+# 保留 DexKit 核心类和方法
+-keep class org.luckypray.dexkit.** { *; }
+-keepclassmembers class org.luckypray.dexkit.** { *; }
+
+# 保留 DexKit 的 JNI 方法
+-keepclasseswithmembernames class org.luckypray.dexkit.** {
+    native <methods>;
+}
+
+# 保留 DexKit 使用的反射相关类
+-keep class * implements org.luckypray.dexkit.** { *; }
+
+# 忽略 DexKit 警告
+-dontwarn org.luckypray.dexkit.**
+
+# ==========================================================
 # Build Behavior
 # ==========================================================
 -dontoptimize
