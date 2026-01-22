@@ -189,49 +189,37 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
         val descriptors = mutableMapOf<String, String>()
 
         // 查找接收红包类
-        if (dexClsReceiveLuckyMoney.find(dexKit, allowMultiple = true) {
-                matcher {
-                    methods {
-                        add {
-                            name = "<init>"
-                            usingStrings("MicroMsg.NetSceneReceiveLuckyMoney")
-                        }
+        dexClsReceiveLuckyMoney.find(dexKit, allowMultiple = true, descriptors) {
+            matcher {
+                methods {
+                    add {
+                        name = "<init>"
+                        usingStrings("MicroMsg.NetSceneReceiveLuckyMoney")
                     }
                 }
-            }) {
-            dexClsReceiveLuckyMoney.getDescriptorString()?.let {
-                descriptors[dexClsReceiveLuckyMoney.key] = it
             }
         }
 
         // 查找开红包类
-        if (dexClsOpenLuckyMoney.find(dexKit, allowMultiple = true) {
-                matcher {
-                    methods {
-                        add {
-                            name = "<init>"
-                            usingStrings("MicroMsg.NetSceneOpenLuckyMoney")
-                        }
+        dexClsOpenLuckyMoney.find(dexKit, allowMultiple = true, descriptors) {
+            matcher {
+                methods {
+                    add {
+                        name = "<init>"
+                        usingStrings("MicroMsg.NetSceneOpenLuckyMoney")
                     }
                 }
-            }) {
-            dexClsOpenLuckyMoney.getDescriptorString()?.let {
-                descriptors[dexClsOpenLuckyMoney.key] = it
             }
         }
 
         // 查找 onGYNetEnd 回调方法
         val receiveLuckyMoneyClassName = dexClsReceiveLuckyMoney.getDescriptorString()
         if (receiveLuckyMoneyClassName != null) {
-            if (dexMethodOnGYNetEnd.find(dexKit, allowMultiple = true) {
-                    matcher {
-                        declaredClass = receiveLuckyMoneyClassName
-                        name = "onGYNetEnd"
-                        paramCount = 3
-                    }
-                }) {
-                dexMethodOnGYNetEnd.getDescriptorString()?.let {
-                    descriptors[dexMethodOnGYNetEnd.key] = it
+            dexMethodOnGYNetEnd.find(dexKit, allowMultiple = true, descriptors) {
+                matcher {
+                    declaredClass = receiveLuckyMoneyClassName
+                    name = "onGYNetEnd"
+                    paramCount = 3
                 }
             }
         }
