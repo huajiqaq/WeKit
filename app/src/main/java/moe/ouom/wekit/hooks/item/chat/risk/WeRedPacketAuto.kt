@@ -109,12 +109,11 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
                 try {
                     if (delayTime > 0) Thread.sleep(delayTime)
 
-                    // 直接使用 .clazz 访问器，自动反射
                     val req = XposedHelpers.newInstance(
                         dexClsReceiveLuckyMoney.clazz,
                         msgType, channelId, sendId, nativeUrl, 1, "v1.0", talker
                     )
-                    // 使用 NetworkApi 发送
+
                     WeNetworkApi.sendRequest(req)
                 } catch (e: Throwable) {
                     WeLogger.e("WeRedPacketAuto: 发送拆包请求失败", e)
@@ -128,7 +127,6 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
 
     private fun hookReceiveCallback() {
         try {
-            // 直接使用 .method 访问器并 Hook
             dexMethodOnGYNetEnd.toDexMethod {
                 hook {
                     afterIfEnabled { param ->
@@ -143,7 +141,6 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
 
                         Thread {
                             try {
-                                // 直接使用 .clazz 访问器
                                 val openReq = XposedHelpers.newInstance(
                                     dexClsOpenLuckyMoney.clazz,
                                     info.msgType, info.channelId, info.sendId, info.nativeUrl,
