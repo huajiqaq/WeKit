@@ -2,6 +2,12 @@
 
 欢迎为 WeKit 项目做出贡献！本指南将帮助你了解项目架构、开发规范和贡献流程。
 
+请在创建 PR 前完整阅读本页内容。
+
+> [!NOTE]
+> 本项目的文档、注释及部分非核心代码逻辑由 AI 协作生成。所有内容均经过人工审核与修正。
+> [关于 AI 生成内容 (AIGC) 的规范](#关于-ai-生成内容-aigc-的规范)
+
 ## 📋 目录
 
 - [项目概述](#项目概述)
@@ -14,12 +20,26 @@
 - [提交规范](#提交规范)
 - [测试指南](#测试指南)
 - [构建和发布](#构建和发布)
+- [文档贡献](#文档贡献)
+- [获取帮助](#获取帮助)
+- [致谢](#致谢)
 
 ---
 
 ## 项目概述
 
 **WeKit** 是一个基于 Xposed 框架的微信功能增强模块，采用 GPL-3.0 开源协议。
+
+### 目标与原则
+
+- **学习与研究优先**：项目仅供学习与研究使用，请勿将其用于任何非法用途。
+
+- **隐私与合规**：不上传、不收集个人信息。
+
+- **可维护性**：保持代码清晰、可读、可测试，避免无谓复杂度。
+
+- **GPL-3.0**：所有贡献均将以 GPL-3.0 协议发布。
+
 
 ### 核心信息
 - **包名**: `moe.ouom.wekit`
@@ -2631,6 +2651,41 @@ close #1
 嵌入 Native 层 -> R8 混淆剩余代码 -> 打包 APK
 ```
 
+## 文档贡献
+
+文档和代码同样重要：
+
+**文档类型**：
+
+- **代码注释**：为复杂逻辑、公共 API 和关键算法添加注释。
+
+- **README**：更新功能列表、使用说明、常见问题。
+
+- **CONTRIBUTING**：完善开发指南、最佳实践。
+
+- **Wiki**：编写详细的技术文档、架构说明、教程。
+
+
+**文档规范**：
+
+- 使用清晰、简洁的语言。
+
+- 提供代码示例和截图（如适用）。
+
+- 保持文档与代码同步更新。
+
+- 使用 Markdown 格式，遵循统一的排版风格。
+
+
+**文档贡献流程**：
+
+- 文档修改也需要通过 PR 提交。
+
+- 重大文档变更建议先创建 Issue 讨论。
+
+- 欢迎修正拼写错误、改进表达、补充遗漏内容。
+
+
 ---
 
 ## 获取帮助
@@ -2640,11 +2695,48 @@ close #1
 - **GitHub Discussions**: [参与讨论](https://github.com/cwuom/wekit/discussions)
 - **Telegram**: [加入 Telegram 群组](https://t.me/wekit_chat)
 
+### Git 与协作
+- [Git 官方文档](https://git-scm.com/doc)
+- [GitHub 协作指南](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests)
+- [Conventional Commits](https://www.conventionalcommits.org/)
+
+
 ### 相关文档
-- [Xposed 开发文档](https://api.xposed.info/)
-- [LSPosed 文档](https://github.com/LSPosed/LSPosed)
-- [DexKit 文档](https://github.com/LuckyPray/DexKit)
-- [Jetpack Compose 文档](https://developer.android.com/jetpack/compose)
+- [Xposed](https://api.xposed.info/)
+- [LSPosed](https://github.com/LSPosed/LSPosed)
+- [DexKit](https://github.com/LuckyPray/DexKit)
+- [Jetpack Compose](https://developer.android.com/jetpack/compose)
+
+### 常见问题 / FAQ
+
+**Q: 我的 PR 多久会被审查？**
+
+A: 我们会尽快审查，但由于维护者时间有限，可能需要几天到几周。大型 PR 可能需要更长时间。
+
+
+
+**Q: 我可以同时提交多个 PR 吗？**
+
+A: 可以，但建议每个 PR 专注于单一功能或修复，便于审查和合并。
+
+
+
+**Q: 我的 PR 被拒绝了怎么办？**
+
+A: 不要气馁！查看审查意见，了解拒绝原因。你可以修改后重新提交，或在 Issue 中讨论。
+
+
+
+**Q: 我不会写代码，可以贡献吗？**
+
+A: 当然！你可以报告 Bug、改进文档、翻译界面、提供设计建议、参与讨论等。
+
+
+
+**Q: 如何成为项目维护者？**
+
+A: 持续贡献高质量的代码和文档，积极参与社区讨论，帮助其他贡献者。维护者会邀请活跃且可靠的贡献者加入。
+
 
 ---
 
@@ -2655,6 +2747,7 @@ close #1
 ### 贡献者
 查看完整的贡献者列表：[Contributors](https://github.com/cwuom/wekit/graphs/contributors)
 
+
 ---
 
 ## 许可证
@@ -2662,6 +2755,17 @@ close #1
 本项目采用 [GPL-3.0 License](LICENSE)。
 
 在贡献代码之前，请确保你理解并同意该许可证的条款。
+
+---
+
+## 关于 AI 生成内容 (AIGC) 的规范
+
+我们鼓励开发者利用 AI 工具（如 GitHub Copilot, ChatGPT 等）提升开发效率，但请遵循以下准则：
+
+* **人是最终负责人**：你应对所有提交的代码、注释及文档负全部责任。请务必对 AI 生成的内容进行严格的代码审查和逻辑验证，严禁直接投喂并提交未经测试的代码。
+* **拒绝“幻觉”逻辑**：特别是在处理 Hook 偏移量和 Dex 结构分析时，AI 极易产生幻觉。请确保每一行 Hook 代码都有实际的 Dex 分析支撑。
+* **协议合规性**：确保 AI 生成的内容不违反 GPL-3.0 开源协议，不包含来自闭源项目或冲突协议的受版权保护的代码片段。
+* **透明化说明**：如果你的 PR 大部分由 AI 生成，请在描述中注明“Generated with [AI Tool Name]”，这有助于 Reviewer 更有针对性地进行审核。
 
 ---
 
