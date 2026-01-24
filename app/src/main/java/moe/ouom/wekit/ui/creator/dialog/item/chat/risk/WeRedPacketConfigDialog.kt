@@ -23,15 +23,9 @@ class WeRedPacketConfigDialog(context: Context) : BaseRikkaDialog(context, "自�
             summary = "默认情况下不抢自己发出的"
         )
 
-        addSwitchPreference(
-            key = "red_packet_delay_random",
-            title = "随机延时",
-            summary = "模拟人工操作（500ms ~ 3000ms)，防止风控"
-        )
-
-        val customDelayView = addEditTextPreference(
+        addEditTextPreference(
             key = "red_packet_delay_custom",
-            title = "自定义延迟",
+            title = "基础延迟",
             summary = "延迟时间",
             defaultValue = "1000",
             hint = "请输入延迟时间（毫秒）",
@@ -42,12 +36,10 @@ class WeRedPacketConfigDialog(context: Context) : BaseRikkaDialog(context, "自�
             }
         )
 
-        // 当随机延迟开启时，禁用自定义延迟
-        setDependency(
-            dependentView = customDelayView,
-            dependencyKey = "red_packet_delay_random",
-            enableWhen = false,
-            hideWhenDisabled = false
+        addSwitchPreference(
+            key = "red_packet_delay_random",
+            title = "随机延时",
+            summary = "在基础延迟上增加 ±500ms 随机偏移，防止风控"
         )
     }
 }

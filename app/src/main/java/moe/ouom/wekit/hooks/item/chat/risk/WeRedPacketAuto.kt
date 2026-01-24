@@ -104,7 +104,15 @@ class WeRedPacketAuto : BaseClickableFunctionHookItem(), WeDatabaseApi.DatabaseI
             // 处理延时
             val isRandomDelay = config.getBoolPrek("red_packet_delay_random")
             val customDelay = config.getStringPrek("red_packet_delay_custom", "0")?.toLongOrNull() ?: 0L
-            val delayTime = if (isRandomDelay) Random.nextLong(500, 3000) else customDelay
+
+            // 如果开启随机延迟，在自定义延迟基础上增加随机偏移
+            val delayTime = if (isRandomDelay) {
+                val baseDelay = if (customDelay > 0) customDelay else 1000L
+                val randomOffset = Random.nextLong(-500, 500)
+                (baseDelay + randomOffset).coerceAtLeast(0)
+            } else {
+                customDelay
+            }
 
             Thread {
                 try {
