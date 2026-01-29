@@ -9,17 +9,18 @@ import android.view.MenuItem
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import moe.ouom.wekit.constants.Constants
-import moe.ouom.wekit.constants.MMVersion
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.dexkit.DexMethodDescriptor
+import moe.ouom.wekit.dexkit.cache.DexCacheManager
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
-import moe.ouom.wekit.host.impl.requireMinWeChatVersion
 import moe.ouom.wekit.ui.CommonContextWrapper
 import moe.ouom.wekit.ui.creator.dialog.MainSettingsDialog
+import moe.ouom.wekit.util.common.SyncUtils
 import moe.ouom.wekit.util.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
+import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
 @SuppressLint("DiscouragedApi")
@@ -181,31 +182,46 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
 
             hookAfter(mInitView) { param: XC_MethodHook.MethodHookParam ->
                 val activity = param.thisObject as Activity
-                val context = activity as Context
-
-                try {
-                    val clsIconPref = XposedHelpers.findClass(Constants.Companion.CLAZZ_ICON_PREFERENCE, classLoader)
-                    val prefInstance = XposedHelpers.newInstance(clsIconPref, context)
-
-                    setKeyMethod.invoke(prefInstance, KEY_WEKIT_ENTRY)
-                    setTitleMethod.invoke(prefInstance, TITLE_WEKIT_ENTRY)
-
-                    val prefScreen = XposedHelpers.callMethod(activity, "getPreferenceScreen")
-
-                    addPrefMethod.invoke(prefScreen, prefInstance, 0)
-
-                } catch (e: Throwable) {
-                    WeLogger.e("WeSettingInjector: 插入选项失败", e)
-                }
+                WeLogger.i(
+                    "WeSettingInjector",
+                    "Legacy inject initView in process=${SyncUtils.getProcessName()}"
+                )
+                injectLegacyEntry(
+                    activity,
+                    classLoader,
+                    setKeyMethod,
+                    setTitleMethod,
+                    getKeyMethod,
+                    addPrefMethod,
+                    "initView"
+                )
             }
 
-            WeLogger.i("WeSettingInjector: Created WeKit setting")
+            hookAfter(clsSettingsUI, "onResume") { param ->
+                val activity = param.thisObject as Activity
+                activity.window?.decorView?.postDelayed({
+                    injectLegacyEntry(
+                        activity,
+                        classLoader,
+                        setKeyMethod,
+                        setTitleMethod,
+                        getKeyMethod,
+                        addPrefMethod,
+                        "onResume"
+                    )
+                }, 350L)
+            }
 
             hookBefore(clsSettingsUI, "onPreferenceTreeClick") { param ->
                 if (param.args.size < 2) return@hookBefore
                 val preference = param.args[1] ?: return@hookBefore
 
-                val key = getKeyMethod.invoke(preference) as? String
+                val key = try {
+                    getKeyMethod.invoke(preference) as? String
+                } catch (e: Throwable) {
+                    WeLogger.e("WeSettingInjector: Failed to read preference key", e)
+                    null
+                }
                 WeLogger.d("WeKit Debug: Click key = $key")
 
                 if (KEY_WEKIT_ENTRY == key) {
@@ -223,6 +239,7 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
 
         } catch (t: Throwable) {
             WeLogger.e("Legacy Settings: Hook 流程异常", t)
+            markCacheOutdated("legacy-hook-setup", t)
         }
     }
 
@@ -305,4 +322,145 @@ class WeSettingInjector : ApiHookItem(), IDexFind {
 
 
     override fun unload(classLoader: ClassLoader) {}
+
+    private fun injectLegacyEntry(
+        activity: Activity,
+        classLoader: ClassLoader,
+        setKeyMethod: Method,
+        setTitleMethod: Method,
+        getKeyMethod: Method,
+        addPrefMethod: Method,
+        stage: String
+    ): Boolean {
+        return try {
+            val clsIconPref = XposedHelpers.findClass(Constants.Companion.CLAZZ_ICON_PREFERENCE, classLoader)
+            val prefInstance = XposedHelpers.newInstance(clsIconPref, activity as Context)
+
+            setKeyMethod.invoke(prefInstance, KEY_WEKIT_ENTRY)
+            setTitleMethod.invoke(prefInstance, TITLE_WEKIT_ENTRY)
+
+            val prefScreen = XposedHelpers.callMethod(activity, "getPreferenceScreen")
+                ?: throw IllegalStateException("PreferenceScreen is null")
+
+            WeLogger.d(
+                "WeSettingInjector",
+                "Inject stage=$stage, prefScreen=${prefScreen.javaClass.name}, addPrefDecl=${addPrefMethod.declaringClass.name}"
+            )
+
+            if (hasExistingEntry(prefScreen)) {
+                WeLogger.d("WeSettingInjector", "Entry already exists, skip inject")
+                return true
+            }
+
+            val (receiver, method) = resolveAddPrefInvocation(activity, prefScreen, addPrefMethod, prefInstance)
+                ?: throw IllegalStateException("Unable to resolve addPreference receiver/method")
+
+            method.isAccessible = true
+            method.invoke(receiver, prefInstance, 0)
+            notifyDataSetChanged(receiver, prefScreen)
+
+            WeLogger.i("WeSettingInjector", "Created WeKit setting (stage=$stage)")
+            true
+        } catch (e: Throwable) {
+            WeLogger.e("WeSettingInjector: 插入选项失败", e)
+            markCacheOutdated("legacy-inject", e)
+            false
+        }
+    }
+
+    private fun hasExistingEntry(prefScreen: Any): Boolean {
+        val findPref = prefScreen.javaClass.methods.firstOrNull {
+            it.name == "findPreference" &&
+                it.parameterTypes.size == 1 &&
+                it.parameterTypes[0] == String::class.java
+        }
+        return try {
+            val result = findPref?.invoke(prefScreen, KEY_WEKIT_ENTRY)
+            result != null
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun resolveAddPrefInvocation(
+        activity: Activity,
+        prefScreen: Any,
+        addPrefMethod: Method,
+        prefInstance: Any
+    ): Pair<Any, Method>? {
+        if (addPrefMethod.declaringClass.isInstance(prefScreen)) {
+            return prefScreen to addPrefMethod
+        }
+        val receiver = findReceiverFromActivity(activity, addPrefMethod.declaringClass)
+        if (receiver != null) {
+            return receiver to addPrefMethod
+        }
+        val fallbackMethod = findAddPreferenceMethod(prefScreen, prefInstance)
+        if (fallbackMethod != null) {
+            return prefScreen to fallbackMethod
+        }
+        return null
+    }
+
+    private fun findReceiverFromActivity(activity: Activity, declaringClass: Class<*>): Any? {
+        var cls: Class<*>? = activity.javaClass
+        while (cls != null) {
+            cls.declaredFields.forEach { field ->
+                try {
+                    field.isAccessible = true
+                    val value = field.get(activity) ?: return@forEach
+                    if (declaringClass.isInstance(value)) {
+                        WeLogger.w(
+                            "WeSettingInjector",
+                            "Using receiver from activity field ${field.name}: ${value.javaClass.name}"
+                        )
+                        return value
+                    }
+                } catch (_: Throwable) {
+                    // ignore
+                }
+            }
+            cls = cls.superclass
+        }
+        return null
+    }
+
+    private fun findAddPreferenceMethod(target: Any, prefInstance: Any): Method? {
+        val prefClass = prefInstance.javaClass
+        val candidates = target.javaClass.methods + target.javaClass.declaredMethods
+        return candidates.firstOrNull { method ->
+            val params = method.parameterTypes
+            if (params.size != 2) return@firstOrNull false
+            val firstMatch = params[0].isAssignableFrom(prefClass)
+            val secondMatch = params[1] == Int::class.javaPrimitiveType || params[1] == Int::class.java
+            method.returnType == Void.TYPE && firstMatch && secondMatch
+        }?.also {
+            WeLogger.w(
+                "WeSettingInjector",
+                "Fallback addPref method resolved: ${it.declaringClass.name}#${it.name}"
+            )
+        }
+    }
+
+    private fun notifyDataSetChanged(vararg targets: Any) {
+        targets.forEach { target ->
+            try {
+                val method = target.javaClass.methods.firstOrNull {
+                    it.name == "notifyDataSetChanged" && it.parameterTypes.isEmpty()
+                } ?: return@forEach
+                method.isAccessible = true
+                method.invoke(target)
+                return
+            } catch (_: Throwable) {
+                // ignore
+            }
+        }
+    }
+
+    private fun markCacheOutdated(stage: String, throwable: Throwable) {
+        WeLogger.w("WeSettingInjector", "Mark cache outdated for $path at $stage", throwable)
+        if (path.isNotBlank()) {
+            DexCacheManager.deleteCache(path)
+        }
+    }
 }

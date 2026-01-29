@@ -35,6 +35,7 @@ import java.util.Objects;
 
 import moe.ouom.wekit.config.RuntimeConfig;
 import moe.ouom.wekit.constants.PackageConstants;
+import moe.ouom.wekit.loader.core.LateInitCoordinator;
 import moe.ouom.wekit.util.common.ModuleRes;
 import moe.ouom.wekit.util.log.WeLogger;
 
@@ -401,7 +402,11 @@ public class ActivityProxyHooks {
         @Override public void sendPointerSync(MotionEvent event) { mBase.sendPointerSync(event); }
         @Override public void sendTrackballEventSync(MotionEvent event) { mBase.sendTrackballEventSync(event); }
         @Override public Application newApplication(ClassLoader cl, String className, Context context) throws ClassNotFoundException, IllegalAccessException, InstantiationException { return mBase.newApplication(cl, className, context); }
-        @Override public void callApplicationOnCreate(Application app) { mBase.callApplicationOnCreate(app); }
+        @Override
+        public void callApplicationOnCreate(Application app) {
+            mBase.callApplicationOnCreate(app);
+            LateInitCoordinator.onApplicationCreate(app);
+        }
         @Override public void callActivityOnDestroy(Activity activity) { mBase.callActivityOnDestroy(activity); }
         @Override public void callActivityOnRestoreInstanceState(@NonNull Activity activity, @NonNull Bundle savedInstanceState) { mBase.callActivityOnRestoreInstanceState(activity, savedInstanceState); }
         @Override public void callActivityOnRestoreInstanceState(@NonNull Activity activity, Bundle savedInstanceState, PersistableBundle persistentState) { mBase.callActivityOnRestoreInstanceState(activity, savedInstanceState, persistentState); }

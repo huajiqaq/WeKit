@@ -46,7 +46,11 @@ public class WeLauncher {
                 RuntimeConfig.setWechatVersionName(pInfo.versionName);
                 RuntimeConfig.setWechatVersionCode(pInfo.getLongVersionCode());
 
-                moe.ouom.wekit.dexkit.cache.DexCacheManager.INSTANCE.init(context, Objects.requireNonNull(pInfo.versionName));
+                moe.ouom.wekit.dexkit.cache.DexCacheManager.INSTANCE.init(
+                        context,
+                        Objects.requireNonNull(pInfo.versionName),
+                        cl
+                );
 
                 WeLogger.i("Host Version: " + RuntimeConfig.getWechatVersionName() + " (" + RuntimeConfig.getWechatVersionCode() + ")");
             }
@@ -77,12 +81,7 @@ public class WeLauncher {
         }
 
         // 加载功能模块
-        // 将当前进程类型传递进去，由 SecretLoader 内部根据 @HookItem 注解进行筛选
-        try {
-            SecretLoader.load(currentProcessType);
-        } catch (Throwable e) {
-            WeLogger.e("WeLauncher: Failed to load modules via SecretLoader", e);
-        }
+        HookLoadCoordinator.requestLoad(currentProcessType);
     }
 
     /**

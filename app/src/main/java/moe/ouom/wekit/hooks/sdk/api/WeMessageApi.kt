@@ -1,9 +1,7 @@
 package moe.ouom.wekit.hooks.sdk.api
 
 import android.annotation.SuppressLint
-import android.content.Context
 import de.robv.android.xposed.XposedHelpers
-import moe.ouom.wekit.config.RuntimeConfig
 import moe.ouom.wekit.core.dsl.dexClass
 import moe.ouom.wekit.core.dsl.dexMethod
 import moe.ouom.wekit.core.model.ApiHookItem

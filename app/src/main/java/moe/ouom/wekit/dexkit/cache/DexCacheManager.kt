@@ -3,6 +3,7 @@ package moe.ouom.wekit.dexkit.cache
 import android.content.Context
 import moe.ouom.wekit.core.model.BaseHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
+import moe.ouom.wekit.util.common.DexEnvUtils
 import moe.ouom.wekit.util.log.WeLogger
 import org.json.JSONObject
 import java.io.File
@@ -26,19 +27,21 @@ object DexCacheManager {
 
     private lateinit var cacheDir: File
     private var currentHostVersion: String = ""
+    private var currentDexSetHash: String = ""
 
     /**
      * 初始化缓存管理器
      * @param context 应用上下文
      * @param hostVersion 宿主应用版本号
      */
-    fun init(context: Context, hostVersion: String) {
+    fun init(context: Context, hostVersion: String, classLoader: ClassLoader) {
         cacheDir = File(context.filesDir, CACHE_DIR_NAME)
         if (!cacheDir.exists()) {
             cacheDir.mkdirs()
         }
 
         currentHostVersion = hostVersion
+        updateDexSetHash(classLoader)
 
         // 检查宿主版本是否变化
         val versionFile = File(cacheDir, HOST_VERSION_FILE)
@@ -53,6 +56,23 @@ object DexCacheManager {
         // 保存当前版本
         versionFile.writeText(hostVersion)
     }
+
+    fun updateDexSetHash(classLoader: ClassLoader) {
+        val newHash = DexEnvUtils.buildDexSetHash(DexEnvUtils.collectDexPaths(classLoader))
+        if (newHash.isBlank()) {
+            WeLogger.w("DexCacheManager", "Dex set hash is empty, dex env validation may be unreliable")
+            return
+        }
+        if (currentDexSetHash.isNotBlank() && currentDexSetHash != newHash) {
+            WeLogger.w(
+                "DexCacheManager",
+                "Dex set hash changed: $currentDexSetHash -> $newHash"
+            )
+        }
+        currentDexSetHash = newHash
+    }
+
+    fun getCurrentDexSetHash(): String = currentDexSetHash
 
     /**
      * 检查 HookItem 的缓存是否有效
@@ -98,9 +118,25 @@ object DexCacheManager {
                 return false
             }
 
+            val cachedDexSetHash = json.optString("dexSetHash", "")
+            if (cachedDexSetHash.isBlank()) {
+                WeLogger.w(
+                    "DexCacheManager",
+                    "Cache missing dexSetHash for: ${item.path}, forcing rescan"
+                )
+                return false
+            }
+            if (currentDexSetHash.isNotBlank() && cachedDexSetHash != currentDexSetHash) {
+                WeLogger.w(
+                    "DexCacheManager",
+                    "Dex env changed for: ${item.path}, cached: $cachedDexSetHash, current: $currentDexSetHash"
+                )
+                return false
+            }
+
             // 检查缓存数据是否为空
             val dataKeys = json.keys().asSequence()
-                .filter { key -> key !in listOf("methodHash", "hostVersion", "timestamp") }
+                .filter { key -> key !in listOf("methodHash", "hostVersion", "timestamp", "dexSetHash") }
                 .toList()
 
             if (dataKeys.isEmpty()) {
@@ -186,6 +222,7 @@ object DexCacheManager {
             json.put("methodHash", calculateMethodHash(item))
             json.put("hostVersion", currentHostVersion)
             json.put("timestamp", System.currentTimeMillis())
+            json.put("dexSetHash", currentDexSetHash)
 
             // 保存自定义数据
             data.forEach { (key, value) ->
@@ -220,7 +257,7 @@ object DexCacheManager {
             val result = mutableMapOf<String, Any>()
 
             json.keys().forEach { key ->
-                if (key !in listOf("methodHash", "hostVersion", "timestamp")) {
+                if (key !in listOf("methodHash", "hostVersion", "timestamp", "dexSetHash")) {
                     result[key] = json.get(key)
                 }
             }

@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Process
 import android.view.View
 import android.view.Window
 import android.widget.Button
@@ -28,10 +29,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import moe.ouom.wekit.core.dsl.DexClassDelegate
+import moe.ouom.wekit.core.dsl.DexMethodDelegate
 import moe.ouom.wekit.core.model.BaseHookItem
+import moe.ouom.wekit.dexkit.DexMethodDescriptor
 import moe.ouom.wekit.dexkit.cache.DexCacheManager
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.util.common.ModuleRes
+import moe.ouom.wekit.util.common.DexEnvUtils
 import moe.ouom.wekit.util.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import java.io.PrintWriter
@@ -157,8 +162,11 @@ class DexFinderDialog(
      * 执行并行扫描
      */
     private suspend fun performParallelScanning() = withContext(Dispatchers.IO) {
-        val dexKit = DexKitBridge.create(appInfo.sourceDir)
-
+        DexCacheManager.updateDexSetHash(classLoader)
+        val dexKits = createDexKitInstances()
+        if (dexKits.isEmpty()) {
+            throw IllegalStateException("No dex containers available for scanning")
+        }
         try {
             // 创建进度更新 Channel
             val progressChannel = Channel<ScanProgress>(Channel.UNLIMITED)
@@ -174,7 +182,7 @@ class DexFinderDialog(
             val results = outdatedItems.asFlow()
                 .map { item ->
                     async {
-                        scanItem(item, dexKit, progressChannel)
+                        scanItem(item, dexKits, progressChannel)
                     }
                 }
                 .buffer(8) // 并发数为 8
@@ -189,7 +197,7 @@ class DexFinderDialog(
                 handleScanResults(results)
             }
         } finally {
-            dexKit.close()
+            dexKits.forEach { it.bridge.close() }
         }
     }
 
@@ -198,7 +206,7 @@ class DexFinderDialog(
      */
     private suspend fun scanItem(
         item: IDexFind,
-        dexKit: DexKitBridge,
+        dexKits: List<DexKitHolder>,
         progressChannel: Channel<ScanProgress>
     ): ScanResult {
         // 获取 path
@@ -208,12 +216,8 @@ class DexFinderDialog(
             // 发送开始扫描进度
             progressChannel.send(ScanProgress.Start(path))
 
-            // 执行 Dex 查找,直接获取 descriptors
-            val descriptors = item.dexFind(dexKit)
-
+            val descriptors = scanItemAcrossDexKits(item, dexKits)
             WeLogger.i("[DexFinderDialog]", "Total descriptors collected: ${descriptors.size}, keys: ${descriptors.keys}")
-
-            // 保存缓存
             DexCacheManager.saveCache(item, descriptors)
 
             // 发送完成进度
@@ -368,5 +372,70 @@ class DexFinderDialog(
     private sealed class ScanResult {
         data class Success(val path: String) : ScanResult()
         data class Failed(val path: String, val error: Exception) : ScanResult()
+    }
+
+    private data class DexKitHolder(
+        val path: String,
+        val bridge: DexKitBridge
+    )
+
+    private fun createDexKitInstances(): List<DexKitHolder> {
+        val basePaths = DexEnvUtils.collectDexPaths(classLoader).toMutableList()
+        if (!basePaths.contains(appInfo.sourceDir)) {
+            basePaths.add(appInfo.sourceDir)
+        }
+        val normalized = basePaths.distinct()
+        val (patchPaths, regularPaths) = normalized.partition {
+            val lower = it.lowercase()
+            lower.contains("/tinker/") || lower.contains("tinker_class") || lower.contains("/patch-")
+        }
+        val orderedPaths = patchPaths + regularPaths
+        WeLogger.i("[DexFinderDialog]", "Dex containers: $orderedPaths")
+        return orderedPaths.mapNotNull { path ->
+            try {
+                DexKitHolder(path, DexKitBridge.create(path))
+            } catch (e: Exception) {
+                WeLogger.e("[DexFinderDialog] Failed to create DexKit for: $path", e)
+                null
+            }
+        }
+    }
+
+    private fun scanItemAcrossDexKits(
+        item: IDexFind,
+        dexKits: List<DexKitHolder>
+    ): Map<String, String> {
+        var lastError: Exception? = null
+        dexKits.forEach { holder ->
+            try {
+                WeLogger.i("[DexFinderDialog]", "Scanning ${item.javaClass.simpleName} using ${holder.path}")
+                val descriptors = item.dexFind(holder.bridge)
+                validateDescriptors(item, descriptors)
+                return descriptors
+            } catch (e: Exception) {
+                lastError = e
+                WeLogger.w("[DexFinderDialog] Scan failed on ${holder.path}, retrying...", e)
+            }
+        }
+        throw lastError ?: IllegalStateException("No dex containers available for scanning")
+    }
+
+    private fun validateDescriptors(item: IDexFind, descriptors: Map<String, String>) {
+        val delegates = item.collectDexDelegates()
+        val missingKeys = delegates.keys.filterNot { descriptors.containsKey(it) }
+        if (missingKeys.isNotEmpty()) {
+            throw IllegalStateException("Descriptors missing keys: $missingKeys")
+        }
+        delegates.forEach { (key, delegate) ->
+            val value = descriptors[key] ?: return@forEach
+            when (delegate) {
+                is DexClassDelegate -> {
+                    classLoader.loadClass(value)
+                }
+                is DexMethodDelegate -> {
+                    DexMethodDescriptor(value).getMethodInstance(classLoader)
+                }
+            }
+        }
     }
 }

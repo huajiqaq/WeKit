@@ -102,12 +102,63 @@ public class UnifiedEntryPoint {
                             } catch (Throwable t) {
                                 Log.e(BuildConfig.TAG, "Failed to hook onCreate", t);
                             }
+
+                            // Hook Instrumentation.callApplicationOnCreate 以处理 Tinker 热更新场景
+                            try {
+                                hookInstrumentationForTinker(currentClassLoader);
+                            } catch (Throwable t) {
+                                Log.e(BuildConfig.TAG, "Failed to hook Instrumentation.callApplicationOnCreate", t);
+                            }
                         }
                     }
             );
             Log.i(BuildConfig.TAG, "Hook applied: waiting for Application.attachBaseContext");
         } catch (Throwable t) {
             Log.e(BuildConfig.TAG, "Failed to hook Shell Application", t);
+        }
+    }
+
+    /**
+     * Hook Instrumentation.callApplicationOnCreate 以确保在 Tinker 热更新完成后再进行延迟初始化
+     * 这可以解决某些模块在热更新环境下找不到入口的问题
+     */
+    private static void hookInstrumentationForTinker(@NonNull ClassLoader hostClassLoader) {
+        try {
+            Class<?> instrumentationClass = Class.forName("android.app.Instrumentation", false, hostClassLoader);
+            XposedHelpers.findAndHookMethod(
+                    instrumentationClass,
+                    "callApplicationOnCreate",
+                    Application.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            Application application = (Application) param.args[0];
+                            WeLogger.i("UnifiedEntryPoint", "Instrumentation.callApplicationOnCreate captured!");
+                            WeLogger.i("UnifiedEntryPoint", "Application: " + application.getClass().getName());
+
+                            // 获取真实的 ClassLoader
+                            ClassLoader realClassLoader = application.getBaseContext().getClassLoader();
+                            WeLogger.i("UnifiedEntryPoint", "Real ClassLoader: " + realClassLoader.getClass().getName());
+
+                            // 调用延迟初始化协调器
+                            try {
+                                Class<?> kLateInitCoordinator = Class.forName(
+                                        "moe.ouom.wekit.loader.core.LateInitCoordinator",
+                                        false,
+                                        UnifiedEntryPoint.class.getClassLoader()
+                                );
+                                kLateInitCoordinator.getMethod("onApplicationCreate", Application.class)
+                                        .invoke(null, application);
+                                WeLogger.i("UnifiedEntryPoint", "LateInitCoordinator.onApplicationCreate invoked successfully.");
+                            } catch (Throwable e) {
+                                Log.e(BuildConfig.TAG, "LateInitCoordinator.onApplicationCreate failed", e);
+                            }
+                        }
+                    }
+            );
+            WeLogger.i("UnifiedEntryPoint", "Instrumentation.callApplicationOnCreate hook installed successfully.");
+        } catch (Throwable e) {
+            Log.e(BuildConfig.TAG, "Failed to hook Instrumentation.callApplicationOnCreate", e);
         }
     }
 
