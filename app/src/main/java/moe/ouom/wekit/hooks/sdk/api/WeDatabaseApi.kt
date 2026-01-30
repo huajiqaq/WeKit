@@ -7,6 +7,7 @@ import moe.ouom.wekit.config.WeConfig
 import moe.ouom.wekit.constants.Constants
 import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.hooks.core.annotation.HookItem
+import moe.ouom.wekit.util.Initiator.loadClass
 import moe.ouom.wekit.util.log.WeLogger
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -39,12 +40,12 @@ class WeDatabaseApi : ApiHookItem() {
     }
 
     override fun entry(classLoader: ClassLoader) {
-        hookDatabaseInsert(classLoader)
+        hookDatabaseInsert()
     }
 
-    private fun hookDatabaseInsert(classLoader: ClassLoader) {
+    private fun hookDatabaseInsert() {
         try {
-            val clsSQLite = XposedHelpers.findClass(Constants.CLAZZ_SQLITE_DATABASE, classLoader)
+            val clsSQLite = loadClass(Constants.CLAZZ_SQLITE_DATABASE)
 
             val mInsertWithOnConflict = XposedHelpers.findMethodExact(
                 clsSQLite,
