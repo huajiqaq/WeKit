@@ -358,6 +358,7 @@ class WePkgHelper : ApiHookItem() {
             720 to Triple("g31.p0", 0, 0),               // /cgi-bin/micromsg-bin/mmgetpersonaldesigner
             821 to Triple("g31.p0", 0, 0),                // /cgi-bin/micromsg-bin/mmgetdesigneremojilist
             594 to Triple("mx4.sl5", 0, 0),              // /cgi-bin/micromsg-bin/revokemsg
+            681 to Triple("mx4.jv4", 0, 0),               // /cgi-bin/micromsg-bin/oplog
         )
     }
 

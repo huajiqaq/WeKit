@@ -85,6 +85,7 @@ class WePkgListener : ApiHookItem() {
                                     if (DEBUG) WeLogger.d("WePkgListener", "JSON: ${data.toJSON()}")
                                 }
                             } catch (_: Exception) { }
+                            WeLogger.printStackTrace()
                         }
                     } catch (t: Throwable) {
                         if (DEBUG) WeLogger.e("WePkgListener", "Dispatch 扫描异常: ${t.message}")
