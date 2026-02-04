@@ -20,6 +20,7 @@ import de.robv.android.xposed.XposedHelpers;
 import moe.ouom.wekit.BuildConfig;
 import moe.ouom.wekit.loader.hookapi.IHookBridge;
 import moe.ouom.wekit.loader.hookapi.ILoaderService;
+import moe.ouom.wekit.util.Initiator;
 import moe.ouom.wekit.util.log.WeLogger;
 
 @Keep
@@ -74,33 +75,11 @@ public class UnifiedEntryPoint {
                             Context context = (Context) param.thisObject;
                             ClassLoader currentClassLoader = context.getClassLoader();
 
-                            WeLogger.i("UnifiedEntryPoint", "Invoking StartupAgent immediately...");
+                            // Hook Instrumentation.callApplicationOnCreate 以处理 Tinker 热更新场景
                             try {
-                                Class<?> kStartupAgent = Class.forName("moe.ouom.wekit.loader.startup.StartupAgent", false, UnifiedEntryPoint.class.getClassLoader());
-                                kStartupAgent.getMethod("startup", String.class, String.class, ILoaderService.class, ClassLoader.class, IHookBridge.class)
-                                        .invoke(null, modulePath, hostDataDir, loaderService, currentClassLoader, hookBridge);
-                                WeLogger.i("UnifiedEntryPoint", "StartupAgent invoked successfully.");
-                            } catch (Throwable e) {
-                                Log.e(BuildConfig.TAG, "StartupAgent.startup failed", e);
-                            }
-
-                            try {
-                                XposedHelpers.findAndHookMethod(
-                                        CLAZZ_MM_APPLICATION_LIKE,
-                                        currentClassLoader,
-                                        "onCreate",
-                                        new XC_MethodHook() {
-                                            @Override
-                                            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                                                WeLogger.i("UnifiedEntryPoint", "MMApplicationLike onCreate captured!");
-                                                Object appLike = param.thisObject;
-                                                Application hostApp = (Application) XposedHelpers.callMethod(appLike, "getApplication");
-                                                StartupInfo.setHostApp(hostApp);
-                                            }
-                                        }
-                                );
+                                hookInstrumentationForTinker(currentClassLoader, modulePath, hostDataDir, loaderService, initialClassLoader, hookBridge);
                             } catch (Throwable t) {
-                                Log.e(BuildConfig.TAG, "Failed to hook onCreate", t);
+                                Log.e(BuildConfig.TAG, "Failed to hook Instrumentation.callApplicationOnCreate", t);
                             }
                         }
                     }
@@ -108,6 +87,54 @@ public class UnifiedEntryPoint {
             Log.i(BuildConfig.TAG, "Hook applied: waiting for Application.attachBaseContext");
         } catch (Throwable t) {
             Log.e(BuildConfig.TAG, "Failed to hook Shell Application", t);
+        }
+    }
+
+    /**
+     * Hook Instrumentation.callApplicationOnCreate 以确保在 Tinker 热更新完成后再进行延迟初始化
+     * 这可以解决某些模块在热更新环境下找不到入口的问题
+     */
+    private static void hookInstrumentationForTinker(@NonNull ClassLoader hostClassLoader,
+                                                     @NonNull String modulePath,
+                                                     @NonNull String hostDataDir,
+                                                     @NonNull ILoaderService loaderService,
+                                                     @NonNull ClassLoader initialClassLoader,
+                                                     @Nullable IHookBridge hookBridge) {
+        try {
+            Class<?> instrumentationClass = Class.forName("android.app.Instrumentation", false, hostClassLoader);
+            XposedHelpers.findAndHookMethod(
+                    instrumentationClass,
+                    "callApplicationOnCreate",
+                    Application.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            Application application = (Application) param.args[0];
+                            WeLogger.i("UnifiedEntryPoint", "Instrumentation.callApplicationOnCreate captured!");
+                            WeLogger.i("UnifiedEntryPoint", "Application: " + application.getClass().getName());
+
+                            ClassLoader realClassLoader = application.getBaseContext().getClassLoader();
+                            WeLogger.i("UnifiedEntryPoint", "Real ClassLoader: " + realClassLoader.getClass().getName());
+                            Initiator.init(realClassLoader);
+
+                            WeLogger.i("UnifiedEntryPoint", "Invoking StartupAgent immediately...");
+                            try {
+                                Class<?> kStartupAgent = Class.forName("moe.ouom.wekit.loader.startup.StartupAgent", false, UnifiedEntryPoint.class.getClassLoader());
+                                kStartupAgent.getMethod("startup", String.class, String.class, ILoaderService.class, ClassLoader.class, IHookBridge.class)
+                                        .invoke(null, modulePath, hostDataDir, loaderService, realClassLoader, hookBridge);
+                                WeLogger.i("UnifiedEntryPoint", "StartupAgent invoked successfully.");
+                            } catch (Throwable e) {
+                                Log.e(BuildConfig.TAG, "StartupAgent.startup failed", e);
+                            }
+
+                            Application hostApp = (Application) param.args[0];
+                            StartupInfo.setHostApp(hostApp);
+                        }
+                    }
+            );
+            WeLogger.i("UnifiedEntryPoint", "Instrumentation.callApplicationOnCreate hook installed successfully.");
+        } catch (Throwable e) {
+            Log.e(BuildConfig.TAG, "Failed to hook Instrumentation.callApplicationOnCreate", e);
         }
     }
 

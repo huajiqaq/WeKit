@@ -21,18 +21,16 @@ public class RuntimeConfig {
     // account info //
 
     // 注意时效性，这里保存的登录信息是刚启动应用时的登录信息，而不是实时的登录信息
+    // TODO: 需要一个机制来更新这些信息
+
 
     // login_weixin_username: wxid_apfe8lfoeoad13
     // last_login_nick_name: 帽子叔叔
     // login_user_name: 15068586147
     // last_login_uin: 1293948946
-    @Getter
     public static String login_weixin_username;
-    @Getter
     public static String last_login_nick_name;
-    @Getter
     public static String login_user_name;
-    @Getter
     public static String last_login_uin;
 
     // ------- //
@@ -109,5 +107,21 @@ public class RuntimeConfig {
 
     public static void setWechatVersionCode(long wechatVersionCode) {
         RuntimeConfig.wechatVersionCode = wechatVersionCode;
+    }
+
+    public static String getLogin_weixin_username() {
+        return login_weixin_username;
+    }
+
+    public static String getLast_login_nick_name() {
+        return last_login_nick_name;
+    }
+
+    public static String getLogin_user_name() {
+        return login_user_name;
+    }
+
+    public static String getLast_login_uin() {
+        return last_login_uin;
     }
 }

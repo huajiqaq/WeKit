@@ -74,7 +74,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
     private var postToQueueMethod: Method? = null
     private var shareFileMethod: Method? = null
     private var getServiceMethod: Method? = null       // ServiceManager.getService
-    private var getSelfWxidMethod: Method? = null
+    private var getSelfAliasMethod: Method? = null
 
     // 图片
     private var p6Method: Method? = null
@@ -608,7 +608,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
             val paramsObj = XposedHelpers.newInstance(paramsClass)
             assignValueToFirstFieldByType(paramsObj, Int::class.javaPrimitiveType!!, 4)
 
-            val taskObj = XposedHelpers.newInstance(taskClass, imgPath, 0, getSelfWxid(), toUser, paramsObj)
+            val taskObj = XposedHelpers.newInstance(taskClass, imgPath, 0, getSelfAlias(), toUser, paramsObj)
             assignValueToLastFieldByType(taskObj, String::class.java, "media_generate_send_img")
 
             sendImageMethod?.invoke(serviceObj, taskObj)
@@ -659,7 +659,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
     /** 发送私有路径下的语音文件 */
     fun sendVoice(toUser: String, path: String, durationMs: Int): Boolean {
         return try {
-            val selfWxid = getSelfWxid()
+            val selfWxid = getSelfAlias()
             if (selfWxid.isEmpty()) throw IllegalStateException("无法获取 Wxid")
 
             // 获取 Service 实例
@@ -749,8 +749,8 @@ class WeMessageApi : ApiHookItem(), IDexFind {
         }
     }
 
-    fun getSelfWxid(): String {
-        return getSelfWxidMethod?.invoke(null) as? String ?: ""
+    fun getSelfAlias(): String {
+        return getSelfAliasMethod?.invoke(null) as? String ?: ""
     }
 
     private fun bindServiceFramework() {
@@ -760,7 +760,7 @@ class WeMessageApi : ApiHookItem(), IDexFind {
         }
 
         val clClazz = dexClassConfigLogic.clazz
-        getSelfWxidMethod = clClazz.declaredMethods.firstOrNull {
+        getSelfAliasMethod = clClazz.declaredMethods.firstOrNull {
             Modifier.isStatic(it.modifiers) && it.parameterCount == 0 && it.returnType == String::class.java && it.name.length <= 2
         }
     }

@@ -4,7 +4,6 @@ import static moe.ouom.wekit.constants.Constants.CLAZZ_WECHAT_LAUNCHER_UI;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
@@ -21,7 +20,6 @@ import moe.ouom.wekit.config.RuntimeConfig;
 import moe.ouom.wekit.constants.PackageConstants;
 import moe.ouom.wekit.loader.core.hooks.ActivityProxyHooks;
 import moe.ouom.wekit.security.SignatureVerifier;
-import moe.ouom.wekit.util.Initiator;
 import moe.ouom.wekit.util.common.ModuleRes;
 import moe.ouom.wekit.util.common.SyncUtils;
 import moe.ouom.wekit.util.log.WeLogger;
@@ -31,7 +29,6 @@ public class WeLauncher {
     public void init(@NonNull ClassLoader cl, @NonNull ApplicationInfo ai, @NonNull String modulePath, Context context) {
         RuntimeConfig.setHostClassLoader(cl);
         RuntimeConfig.setHostApplicationInfo(ai);
-        Initiator.init(context.getClassLoader());
 
         int currentProcessType = SyncUtils.getProcessType();
         String currentProcessName = SyncUtils.getProcessName();

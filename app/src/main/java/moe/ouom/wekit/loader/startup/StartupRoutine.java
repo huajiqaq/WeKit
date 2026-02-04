@@ -35,7 +35,6 @@ public class StartupRoutine {
     public static void execPostStartupInit(@NonNull Context ctx, @Nullable Object step, String lpwReserved, boolean bReserved) {
         // init all kotlin utils here
         HostInfo.init((Application) ctx);
-        Initiator.init(ctx.getClassLoader());
         // perform full initialization for native core -- including primary and secondary native libraries
         StartupInfo.getLoaderService().setClassLoaderHelper(InMemoryClassLoaderHelper.INSTANCE);
         LibXposedNewApiByteCodeGenerator.init();
