@@ -10,7 +10,7 @@ import moe.ouom.wekit.core.model.ApiHookItem
 import moe.ouom.wekit.dexkit.intf.IDexFind
 import moe.ouom.wekit.hooks.core.annotation.HookItem
 import moe.ouom.wekit.hooks.sdk.protocol.intf.WeReqCallback
-import moe.ouom.wekit.util.FunProtoData
+import moe.ouom.wekit.util.WeProtoData
 import moe.ouom.wekit.util.Initiator.loadClass
 import moe.ouom.wekit.util.ProtoJsonBuilder
 import moe.ouom.wekit.util.log.WeLogger
@@ -551,7 +551,7 @@ class WePkgHelper : ApiHookItem(), IDexFind {
                                 val protoObj = XposedHelpers.getObjectField(respWrapper, "a")
                                 bytes = XposedHelpers.callMethod(protoObj, "toByteArray") as? ByteArray
                                 if (bytes != null) {
-                                    json = FunProtoData().also { it.fromBytes(bytes) }.toJSON().toString()
+                                    json = WeProtoData().also { it.fromBytes(bytes) }.toJSON().toString()
                                 }
                             }
                         } catch (e: Throwable) {
@@ -592,7 +592,7 @@ class WePkgHelper : ApiHookItem(), IDexFind {
                         }
                             ?: XposedHelpers.callMethod(yd, "toByteArray") as? ByteArray
                         val json =
-                            if (bytes != null) FunProtoData().also { it.fromBytes(bytes) }.toJSON()
+                            if (bytes != null) WeProtoData().also { it.fromBytes(bytes) }.toJSON()
                                 .toString() else "{}"
                         userCallback?.onSuccess(json, bytes)
                     } else {

@@ -10,6 +10,7 @@ import moe.ouom.wekit.hooks.sdk.protocol.WePkgManager
 import moe.ouom.wekit.util.common.SyncUtils
 import moe.ouom.wekit.util.log.WeLogger
 import org.luckypray.dexkit.DexKitBridge
+import java.lang.reflect.Proxy
 
 @HookItem(path = "protocol/wepkg_dispatcher", desc = "WePkg 请求/响应数据包拦截与篡改")
 class WePkgDispatcher : ApiHookItem(), IDexFind {
@@ -19,6 +20,8 @@ class WePkgDispatcher : ApiHookItem(), IDexFind {
         SyncUtils.postDelayed(3000) {
             val netSceneBaseClass = WePkgHelper.INSTANCE?.dexClsNetSceneBase?.clazz
             val callbackInterface = dexClsOnGYNetEnd.clazz
+
+//            hookBuilder()
 
             if (netSceneBaseClass == null) {
                 WeLogger.e("PkgDispatcher", "无法找到 NetSceneBase 类，跳过 WePkg 拦截器注入")
@@ -42,9 +45,9 @@ class WePkgDispatcher : ApiHookItem(), IDexFind {
                     }
                 } catch (_: Throwable) {  }
 
-                if (java.lang.reflect.Proxy.isProxyClass(originalCallback.javaClass)) return@hookBefore
+                if (Proxy.isProxyClass(originalCallback.javaClass)) return@hookBefore
 
-                param.args[2] = java.lang.reflect.Proxy.newProxyInstance(
+                param.args[2] = Proxy.newProxyInstance(
                     classLoader,
                     arrayOf(callbackInterface)
                 ) { _, method, args ->
@@ -55,13 +58,42 @@ class WePkgDispatcher : ApiHookItem(), IDexFind {
                         "onGYNetEnd" -> {
                             try {
                                 val respV0 = args!![4] ?: v0Var
-                                val respWrapper = XposedHelpers.getObjectField(respV0, "b") // n
-                                val respPbObj = XposedHelpers.getObjectField(respWrapper, "a") // PB 实例
-                                val originalRespBytes = XposedHelpers.callMethod(respPbObj, "toByteArray") as ByteArray
+                                val className = respV0.javaClass.name
 
-                                WePkgManager.handleResponseTamper(uri, cgiId, originalRespBytes)?.let { tampered ->
-                                    XposedHelpers.callMethod(respPbObj, "parseFrom", tampered)
-                                    WeLogger.i("PkgDispatcher", "Response Tampered (Memory): $uri")
+                                // 处理 Kinda 框架的 WXPCommReqResp
+                                if (className == "com.tencent.kinda.framework.module.impl.WXPCommReqResp") {
+                                    val originalRespBytes = XposedHelpers.callMethod(respV0, "getWXPRespData") as? ByteArray
+                                    if (originalRespBytes != null) {
+                                        WePkgManager.handleResponseTamper(uri, cgiId, originalRespBytes)?.let { tampered ->
+                                            XposedHelpers.callMethod(respV0, "setWXPRespData", tampered)
+                                            WeLogger.i("PkgDispatcher", "Response Tampered (WXP): $uri")
+                                        }
+                                    }
+                                }
+                                // 处理标准混淆的 ICommReqResp 实现
+                                else {
+                                    var respWrapper: Any? = null
+                                    try {
+                                        respWrapper = XposedHelpers.getObjectField(respV0, "b")
+                                    } catch (_: NoSuchFieldError) {
+                                        respWrapper = XposedHelpers.callMethod(respV0, "getRespObj")
+                                    }
+
+                                    if (respWrapper != null) {
+                                        val respPbObj = try {
+                                            XposedHelpers.getObjectField(respWrapper, "a")
+                                        } catch (e: NoSuchFieldError) {
+                                            null
+                                        }
+
+                                        if (respPbObj != null) {
+                                            val originalRespBytes = XposedHelpers.callMethod(respPbObj, "toByteArray") as ByteArray
+                                            WePkgManager.handleResponseTamper(uri, cgiId, originalRespBytes)?.let { tampered ->
+                                                XposedHelpers.callMethod(respPbObj, "parseFrom", tampered)
+                                                WeLogger.i("PkgDispatcher", "Response Tampered (PB): $uri")
+                                            }
+                                        }
+                                    }
                                 }
                             } catch (t: Throwable) {
                                 WeLogger.e("PkgDispatcher", "Tamper inner logic fail", t)
@@ -72,6 +104,56 @@ class WePkgDispatcher : ApiHookItem(), IDexFind {
                     return@newProxyInstance method.invoke(originalCallback, *(args ?: emptyArray()))
                 }
             }
+        }
+    }
+
+    private fun hookBuilder() {
+        val builderClass = WePkgHelper.INSTANCE?.dexClsConfigBuilder?.clazz
+
+        try {
+            if (builderClass == null) {
+                WeLogger.e("WePkgListener-gen", "找不到 Builder 类")
+                return
+            }
+            WeLogger.i("WePkgListener-gen", "start Hook ${builderClass.name}.a() 方法")
+            hookAfter(builderClass, "a") { param ->
+                val builder = param.thisObject
+
+                val cgiId = try {
+                    XposedHelpers.getIntField(builder, "d")
+                } catch (_: Throwable) {
+                    0
+                }
+                val funcId = try {
+                    XposedHelpers.getIntField(builder, "e")
+                } catch (_: Throwable) {
+                    0
+                }
+                val routeId = try {
+                    XposedHelpers.getIntField(builder, "f")
+                } catch (_: Throwable) {
+                    0
+                }
+                val uri = try {
+                    XposedHelpers.getObjectField(builder, "c") as? String ?: ""
+                } catch (_: Throwable) {
+                    ""
+                }
+
+                // 获取 Request 对象的类名
+                var reqClassName = "Unknown"
+                try {
+                    val reqObj = XposedHelpers.getObjectField(builder, "a")
+                    if (reqObj != null) {
+                        reqClassName = reqObj.javaClass.name
+                    }
+                } catch (_: Throwable) { }
+
+                val configLog = "$cgiId to Triple(\"$reqClassName\", $funcId, $routeId), // $uri"
+                WeLogger.w("WePkgListener-gen", configLog)
+            }
+        } catch (e: Throwable) {
+            WeLogger.e("WePkgListener-gen", "Builder Hook 失败: ${e.message}")
         }
     }
 
