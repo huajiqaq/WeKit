@@ -2117,7 +2117,7 @@ val enabled = config.getBooleanOrDefault("key", false)
 用于功能开关等场景：
 ```kotlin
 val config = ConfigManager.getDefaultConfig()
-val enabled = config.getBoolPrek("my_feature")  // 读取 "prek_xxx_my_feature"
+val enabled = config.getBoolPrek("my_feature")  // 读取 "setting_switch_value_my_feature"
 val delay = config.getIntPrek("delay", 0)
 val text = config.getStringPrek("text", "默认值")
 ```
