@@ -147,6 +147,7 @@ class HookQueryCashierPkg : BaseClickableFunctionHookItem(), IWePkgInterceptor {
 
     override fun unload(classLoader: ClassLoader) {
         WePkgManager.removeInterceptor(this)
+        super.unload(classLoader)
     }
 
     override fun onClick(context: Context?) {

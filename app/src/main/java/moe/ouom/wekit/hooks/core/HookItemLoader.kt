@@ -202,11 +202,9 @@ class HookItemLoader {
                 when (hookItem) {
                     is BaseSwitchFunctionHookItem -> {
                         WeLogger.i("HookItemLoader", "[Switch] Init ${hookItem.path}")
-                        hookItem.startLoad()
                     }
                     is BaseClickableFunctionHookItem -> {
                         WeLogger.i("HookItemLoader", "[Clickable] Init ${hookItem.path}")
-                        hookItem.startLoad()
                     }
                     is ApiHookItem -> {
                         WeLogger.i("HookItemLoader", "[API] Init ${hookItem.path}")

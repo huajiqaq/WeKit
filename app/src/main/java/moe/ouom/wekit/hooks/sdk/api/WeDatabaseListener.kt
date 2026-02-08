@@ -69,8 +69,12 @@ class WeDatabaseListener : ApiHookItem() {
                     if (listeners.isNotEmpty()) {
                         if (verboseLog) {
                             if (dbVerboseLog) {
-                                // 输出完整的 ContentValues
-                                WeLogger.d("WeDatabaseApi: 分发数据库插入事件 table=$table 给 ${listeners.size} 个监听器, values=$values")
+                                val argsInfo = param.args.mapIndexed { index, arg ->
+                                    "arg[$index](${arg?.javaClass?.simpleName ?: "null"})=$arg"
+                                }.joinToString(", ")
+                                val result = param.result
+
+                                WeLogger.logChunkedD("WeDatabaseApi","[Insert] table=$table, result=$result, args=[$argsInfo]")
                             }
                         }
                         listeners.forEach { it.onInsert(table, values) }

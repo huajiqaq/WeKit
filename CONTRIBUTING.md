@@ -2227,6 +2227,7 @@ override fun entry(classLoader: ClassLoader) {
 ```kotlin
 override fun unload(classLoader: ClassLoader) {
     WePkgManager.removeInterceptor(this)
+    super.unload(classLoader)
 }
 ```
 
@@ -2402,6 +2403,7 @@ class HookQueryCashierPkg : BaseClickableFunctionHookItem(), IWePkgInterceptor {
     override fun unload(classLoader: ClassLoader) {
         // 卸载时移除拦截器
         WePkgManager.removeInterceptor(this)
+        super.unload(classLoader)
     }
 
     override fun onClick(context: Context?) {
@@ -2461,6 +2463,7 @@ class MyHook : BaseHookItem(), IWePkgInterceptor {
     override fun unload(classLoader: ClassLoader) {
         // ✅ 必须在卸载时移除拦截器
         WePkgManager.removeInterceptor(this)
+        super.unload(classLoader)
     }
 }
 ```

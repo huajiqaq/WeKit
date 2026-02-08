@@ -75,7 +75,6 @@ class CategorySettingsDialog(
             // 允许切换,保存配置并更新状态
             WeConfig.getDefaultConfig().edit().putBoolean(configKey, checked).apply()
             item.isEnabled = checked
-            if (checked) item.startLoad()
         }
         listenerRef = listener
 
@@ -135,17 +134,6 @@ class CategorySettingsDialog(
             // 允许切换,保存配置并更新状态
             WeConfig.getDefaultConfig().edit().putBoolean(configKey, checked).apply()
             item.isEnabled = checked
-            if (checked) {
-                WeLogger.i("[CategorySettings] Loading HookItem: ${item.path}")
-                item.startLoad()
-            } else {
-                WeLogger.i("[CategorySettings] Unloading HookItem: ${item.path}")
-                try {
-                    item.unload(context.classLoader)
-                } catch (e: Throwable) {
-                    WeLogger.e("[CategorySettings] Unload HookItem Failed", e)
-                }
-            }
         }
         listenerRef = listener
 

@@ -84,8 +84,15 @@ class WeDatabaseApi : ApiHookItem(), IDexFind {
             INSTANCE = this
             getStorageMethod = dexMethodGetStorage.method
 
-            // 尝试预热数据库引用
-            initializeDatabase()
+            if (getStorageMethod != null) {
+                hookAfter(getStorageMethod!!) { param ->
+                    val storageObj = param.result ?: return@hookAfter
+
+                    if (wcdbInstance == null) {
+                        initializeDatabase(storageObj)
+                    }
+                }
+            }
 
         } catch (e: Exception) {
             WeLogger.e(TAG, "Entry 初始化异常", e)
@@ -96,15 +103,10 @@ class WeDatabaseApi : ApiHookItem(), IDexFind {
      * 核心初始化逻辑
      */
     @Synchronized
-    private fun initializeDatabase(): Boolean {
+    private fun initializeDatabase(storageObj: Any): Boolean {
         if (wcdbInstance != null && rawQueryMethod != null) return true
 
         try {
-            // 获取 Storage 实例
-            val storageObj = getStorageMethod?.invoke(null) ?: run {
-                return false
-            }
-
             // 在 Storage 中寻找 Wrapper
             val wrapperObj = findDbWrapper(storageObj)
             if (wrapperObj == null) {
@@ -124,7 +126,6 @@ class WeDatabaseApi : ApiHookItem(), IDexFind {
             if (rawQuery != null) {
                 wcdbInstance = dbInstance
                 rawQueryMethod = rawQuery
-                WeLogger.i(TAG, "数据库 API 就绪")
                 return true
             }
 
@@ -212,7 +213,6 @@ class WeDatabaseApi : ApiHookItem(), IDexFind {
      */
     fun executeQuery(sql: String): List<Map<String, Any?>> {
         val result = mutableListOf<Map<String, Any?>>()
-        if (!initializeDatabase()) return result
 
         var cursor: Cursor? = null
         try {
@@ -328,7 +328,7 @@ class WeDatabaseApi : ApiHookItem(), IDexFind {
         val roomResult = executeQuery(roomSql)
 
         if (roomResult.isEmpty()) {
-            WeLogger.w(TAG, "未找到群聊信息: $chatroomId (可能未保存到通讯录)")
+            WeLogger.w(TAG, "未找到群聊信息: $chatroomId")
             return emptyList()
         }
 

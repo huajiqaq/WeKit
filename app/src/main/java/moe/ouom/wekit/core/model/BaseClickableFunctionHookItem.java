@@ -35,14 +35,14 @@ public abstract class BaseClickableFunctionHookItem extends BaseHookItem {
      * @param newState 新的状态 (true: 启用, false: 禁用)
      */
     public void applyToggle(boolean newState) {
-        // 1. 保存配置
+        // 保存配置
         String configKey = Constants.PrekClickableXXX + this.getPath();
         WeConfig.getDefaultConfig().edit().putBoolean(configKey, newState).apply();
 
-        // 2. 更新状态
+        // 更新状态
         this.setEnabled(newState);
 
-        // 3. 触发UI更新回调
+        // 触发UI更新回调
         if (toggleCompletionCallback != null) {
             toggleCompletionCallback.run();
         }

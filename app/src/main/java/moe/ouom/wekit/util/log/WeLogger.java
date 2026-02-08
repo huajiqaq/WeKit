@@ -410,4 +410,8 @@ public class WeLogger {
     public static void logChunkedW(@NonNull String tag, @NonNull String msg) {
         logChunked(Log.WARN, tag, msg);
     }
+
+    public static void logChunkedD(@NonNull String tag, @NonNull String msg) {
+        logChunked(Log.DEBUG, tag, msg);
+    }
 }

@@ -78,7 +78,7 @@ abstract class BaseHookItem {
 
         if (isLoad) {
             if (verboseLog) {
-                WeLogger.w("BaseHookItem.startLoad() skipped - already loaded for ${this::class.java.simpleName}")
+                WeLogger.w("BaseHookItem.startLoad() skipped - already loaded for ${this::class.java.simpleName}. \nCall Stack: ${Exception().stackTraceToString()}")
             }
             return
         }
